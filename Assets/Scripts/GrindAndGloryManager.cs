@@ -87,7 +87,7 @@ namespace GrindAndGlory
                 camObj.AddComponent<AudioListener>();
             }
             _mainCamera.orthographic = true;
-            _mainCamera.orthographicSize = 6.8f;
+            _mainCamera.orthographicSize = 8.2f;
             _mainCamera.backgroundColor = new Color(0.07f, 0.08f, 0.11f, 1f);
             _mainCamera.transform.position = new Vector3(0f, 0f, -10f);
 
@@ -300,6 +300,14 @@ namespace GrindAndGlory
         private void UpdateCameraFollow(float dt)
         {
             if (_mainCamera == null || PlayerController.Instance == null) return;
+
+            // Cho phép lăn chuột (Scroll Wheel) để thu phóng góc nhìn toàn cảnh tùy ý (từ 5.5 đến 11.5, mặc định 8.2)
+            float scroll = Input.mouseScrollDelta.y;
+            if (Mathf.Abs(scroll) > 0.01f)
+            {
+                _mainCamera.orthographicSize = Mathf.Clamp(_mainCamera.orthographicSize - scroll * 0.6f, 5.5f, 11.5f);
+            }
+
             Vector3 target = PlayerController.Instance.transform.position;
             target.z = -10f;
 
@@ -325,7 +333,7 @@ namespace GrindAndGlory
 
             Vector2 playerPos = PlayerController.Instance.transform.position;
             float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
-            float dist = UnityEngine.Random.Range(7.5f, 11.0f);
+            float dist = UnityEngine.Random.Range(9.0f, 12.8f);
             Vector2 spawnPos = playerPos + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * dist;
 
             if (MapEnvironmentBuilder.Instance != null)
@@ -367,13 +375,21 @@ namespace GrindAndGlory
                 spawnPos = MapEnvironmentBuilder.Instance.ClampAndResolveMovement(spawnPos, 0.7f);
             }
 
-            ActiveBoss = EnemyController.SpawnMonster(CurrentStage.MiniBossId, spawnPos, 1.0f);
+            float lvlBonus = 1.0f + Mathf.Max(0, PlayerController.Instance.CurrentLevel - 1) * 0.14f;
+            ActiveBoss = EnemyController.SpawnMonster(CurrentStage.MiniBossId, spawnPos, 2.6f * lvlBonus);
+            // Triệu hồi thêm đội cận vệ hộ tống Mini Boss
+            string guardId = CurrentStage.RegularMonsterIds[CurrentStage.RegularMonsterIds.Length - 1];
+            for (int i = 0; i < 3; i++)
+            {
+                Vector2 gOffset = UnityEngine.Random.insideUnitCircle.normalized * 2.4f;
+                EnemyController.SpawnMonster(guardId, spawnPos + gOffset, 1.5f);
+            }
             if (AudioManager.Instance != null)
             {
                 AudioManager.Instance.PlaySfx("sfx_boss_spawn", 0.9f);
                 AudioManager.Instance.PlayBgm("Audio/bgm_boss");
             }
-            ShowBannerMessage($"CẢNH BÁO MINI BOSS XUẤT HIỆN!\n{ActiveBoss.Definition.DisplayName} đã chặn đường!");
+            ShowBannerMessage($"CẢNH BÁO MINI BOSS XUẤT HIỆN!\n{ActiveBoss.Definition.DisplayName} cùng Đội Cận Vệ đã chặn đường!");
         }
 
         public void SpawnStageFinalBoss()
@@ -391,13 +407,21 @@ namespace GrindAndGlory
                 spawnPos = MapEnvironmentBuilder.Instance.ClampAndResolveMovement(spawnPos, 0.85f);
             }
 
-            ActiveBoss = EnemyController.SpawnMonster(CurrentStage.FinalBossId, spawnPos, 1.0f);
+            float lvlBonus = 1.0f + Mathf.Max(0, PlayerController.Instance.CurrentLevel - 1) * 0.16f;
+            ActiveBoss = EnemyController.SpawnMonster(CurrentStage.FinalBossId, spawnPos, 3.2f * lvlBonus);
+            // Triệu hồi đội tinh nhuệ hộ tống Trùm Cuối
+            string guardId = CurrentStage.RegularMonsterIds[CurrentStage.RegularMonsterIds.Length - 1];
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 gOffset = UnityEngine.Random.insideUnitCircle.normalized * 2.8f;
+                EnemyController.SpawnMonster(guardId, spawnPos + gOffset, 1.8f);
+            }
             if (AudioManager.Instance != null)
             {
                 AudioManager.Instance.PlaySfx("sfx_boss_spawn", 1.0f);
                 AudioManager.Instance.PlayBgm("Audio/bgm_boss");
             }
-            ShowBannerMessage($"TRÙM CUỐI MÀN XUẤT HIỆN!\n{ActiveBoss.Definition.DisplayName} đã giáng lâm!");
+            ShowBannerMessage($"TRÙM CUỐI MÀN XUẤT HIỆN!\n{ActiveBoss.Definition.DisplayName} đã giáng lâm với sức mạnh hủy diệt!");
         }
 
         public void OnMonsterKilled(EnemyController enemy)

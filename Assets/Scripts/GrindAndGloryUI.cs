@@ -84,8 +84,8 @@ namespace GrindAndGlory
         public void InitializeUI(GrindAndGloryManager manager)
         {
             _manager = manager;
-            _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (_font == null) _font = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            _font = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI", "Arial", "Tahoma" }, 32);
+            if (_font == null) _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             EnsureEventSystem();
             CreateMasterCanvas();
@@ -201,11 +201,11 @@ namespace GrindAndGlory
                 AddOutline(card, new Color(0.4f, 0.5f, 0.7f, 0.8f), 2f);
 
                 // Animated Hero Preview
-                GameObject iconBg = CreatePanel(card.transform, "PortraitBG", new Vector2(0.5f, 0.5f), new Vector2(115f, 125f), new Color(0.08f, 0.1f, 0.15f, 1f));
+                GameObject iconBg = CreatePanel(card.transform, "PortraitBG", new Vector2(0.5f, 0.5f), new Vector2(122f, 132f), new Color(0.08f, 0.1f, 0.15f, 1f));
                 iconBg.GetComponent<RectTransform>().anchoredPosition = new Vector2(-180f, 75f);
-                GameObject portraitObj = CreateImage(iconBg.transform, "Portrait", h.PortraitSprite, Vector2.zero, new Vector2(96f, 112f));
+                GameObject portraitObj = CreateImage(iconBg.transform, "Portrait", h.PortraitSprite, Vector2.zero, new Vector2(114f, 126f));
                 SpriteAnimator anim = portraitObj.AddComponent<SpriteAnimator>();
-                anim.Initialize(h.AssetFolder, 64f, 8f, true);
+                anim.Initialize(h.AssetFolder, 44f, 8f, true);
 
                 // Weapon icon
                 WeaponDefinition mainW = GameDatabase.Weapons[h.StartingWeaponId];
@@ -213,7 +213,7 @@ namespace GrindAndGlory
                 CreateText(card.transform, "WeaponLbl", mainW.DisplayName, new Vector2(-180f, -100f), new Vector2(140f, 30f), 15, new Color(1f, 0.85f, 0.35f), FontStyle.Bold);
 
                 // Stats & Info
-                CreateText(card.transform, "HeroName", $"{h.DisplayName}\n<size=18><color=#7FD8FF>{h.RoleTitle}</color></size>",
+                CreateText(card.transform, "HeroName", $"{h.DisplayName}\n<size=36><color=#7FD8FF>{h.RoleTitle}</color></size>",
                     new Vector2(55f, 112f), new Vector2(320f, 56f), 24, Color.white, FontStyle.Bold, TextAnchor.MiddleLeft);
 
                 string statsStr = $"• HP: <b>{h.BaseHP}</b> (+{h.HPPerLevel}/lvl)\n" +
@@ -1053,11 +1053,14 @@ namespace GrindAndGlory
             go.transform.SetParent(parent, false);
             RectTransform rt = go.GetComponent<RectTransform>();
             rt.anchoredPosition = pos;
-            rt.sizeDelta = size;
+            // 2x Supersampling: Render font at 200% resolution and scale RectTransform by 0.5x so text is razor-sharp even in small Editor windows
+            rt.sizeDelta = size * 2.0f;
+            rt.localScale = new Vector3(0.5f, 0.5f, 1.0f);
+
             Text txt = go.GetComponent<Text>();
             txt.font = _font;
             txt.text = content;
-            txt.fontSize = fontSize;
+            txt.fontSize = Mathf.Max(14, fontSize) * 2;
             txt.color = color;
             txt.fontStyle = style;
             txt.alignment = align;
@@ -1066,8 +1069,8 @@ namespace GrindAndGlory
             txt.supportRichText = true;
 
             Shadow sh = go.AddComponent<Shadow>();
-            sh.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            sh.effectDistance = new Vector2(1.5f, -1.5f);
+            sh.effectColor = new Color(0f, 0f, 0f, 0.90f);
+            sh.effectDistance = new Vector2(2.2f, -2.2f);
             return txt;
         }
 

@@ -6,33 +6,51 @@ namespace GrindAndGlory
     public class FloatingTextPopup : MonoBehaviour
     {
         private TextMesh _textMesh;
+        private TextMesh _shadowMesh;
         private Vector3 _velocity;
-        private float _lifetime = 0.75f;
+        private float _lifetime = 0.78f;
         private float _timer;
         private Color _baseColor;
 
         public static void Spawn(Vector3 worldPos, string text, Color color, float fontSize = 0.14f)
         {
             GameObject go = new GameObject("PopupText");
-            go.transform.position = worldPos + new Vector3(UnityEngine.Random.Range(-0.25f, 0.25f), 0.6f, -1f);
-            go.transform.localScale = Vector3.one * fontSize;
+            go.transform.position = worldPos + new Vector3(UnityEngine.Random.Range(-0.22f, 0.22f), 0.65f, -1f);
+            go.transform.localScale = Vector3.one * (fontSize * 1.15f);
 
+            // High-DPI FontSize = 96 with smaller characterSize for razor-sharp text rendering
             TextMesh tm = go.AddComponent<TextMesh>();
             tm.text = text;
-            tm.fontSize = 36;
-            tm.characterSize = 0.25f;
+            tm.fontSize = 96;
+            tm.characterSize = 0.09f;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
             tm.fontStyle = FontStyle.Bold;
             tm.color = color;
 
             MeshRenderer mr = go.GetComponent<MeshRenderer>();
-            if (mr != null) mr.sortingOrder = 5000;
+            if (mr != null) mr.sortingOrder = 5005;
+
+            // Crisp dark outline/drop-shadow backing
+            GameObject shObj = new GameObject("Shadow");
+            shObj.transform.SetParent(go.transform, false);
+            shObj.transform.localPosition = new Vector3(0.06f, -0.06f, 0.01f);
+            TextMesh stm = shObj.AddComponent<TextMesh>();
+            stm.text = text;
+            stm.fontSize = 96;
+            stm.characterSize = 0.09f;
+            stm.anchor = TextAnchor.MiddleCenter;
+            stm.alignment = TextAlignment.Center;
+            stm.fontStyle = FontStyle.Bold;
+            stm.color = new Color(0f, 0f, 0f, 0.92f);
+            MeshRenderer smr = shObj.GetComponent<MeshRenderer>();
+            if (smr != null) smr.sortingOrder = 5004;
 
             FloatingTextPopup pop = go.AddComponent<FloatingTextPopup>();
             pop._textMesh = tm;
+            pop._shadowMesh = stm;
             pop._baseColor = color;
-            pop._velocity = new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 1.6f, 0f);
+            pop._velocity = new Vector3(UnityEngine.Random.Range(-0.35f, 0.35f), 1.65f, 0f);
         }
 
         private void Update()
@@ -41,10 +59,14 @@ namespace GrindAndGlory
             transform.position += _velocity * Time.deltaTime;
             _velocity.y *= 0.96f;
 
+            float alpha = Mathf.Clamp01(1f - (_timer / _lifetime));
             if (_textMesh != null)
             {
-                float alpha = Mathf.Clamp01(1f - (_timer / _lifetime));
                 _textMesh.color = new Color(_baseColor.r, _baseColor.g, _baseColor.b, alpha);
+            }
+            if (_shadowMesh != null)
+            {
+                _shadowMesh.color = new Color(0f, 0f, 0f, alpha * 0.92f);
             }
 
             if (_timer >= _lifetime)
@@ -82,7 +104,7 @@ namespace GrindAndGlory
             go.transform.position = spawnPos;
 
             SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-            sr.sortingOrder = Mathf.RoundToInt(-spawnPos.y * 100f) - 5;
+            sr.sortingOrder = MapEnvironmentBuilder.GetEntitySortingOrder(spawnPos.y, -5);
 
             DropItemController ctrl = go.AddComponent<DropItemController>();
             ctrl.ItemType = type;
@@ -191,9 +213,10 @@ namespace GrindAndGlory
         private float _flashTimer;
         private Vector2 _knockbackVel;
 
-        // Dash/Charge state
+        // Dash/Charge & Boss Enrage state
         private float _chargeDurationTimer;
         private Vector2 _chargeDir;
+        private bool _isEnraged;
 
         public static EnemyController SpawnMonster(string monsterId, Vector2 position, float difficultyScale = 1.0f)
         {
@@ -206,13 +229,14 @@ namespace GrindAndGlory
             go.transform.position = new Vector3(position.x, position.y, 0f);
 
             SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+            sr.sortingOrder = MapEnvironmentBuilder.GetEntitySortingOrder(position.y);
             SpriteAnimator anim = go.AddComponent<SpriteAnimator>();
 
             bool useSecondary = !string.IsNullOrEmpty(def.SecondaryAnimFolder) && UnityEngine.Random.value > 0.5f;
             string animFolder = useSecondary ? def.SecondaryAnimFolder : def.PrimaryAnimFolder;
 
-            float ppu = def.Category == MonsterCategory.FinalBoss ? 46f :
-                        (def.Category == MonsterCategory.MiniBoss ? 54f : 64f);
+            float ppu = def.Category == MonsterCategory.FinalBoss ? 48f :
+                        (def.Category == MonsterCategory.MiniBoss ? 56f : 64f);
             anim.Initialize(animFolder, ppu, 9f, false);
 
             EnemyController enemy = go.AddComponent<EnemyController>();
@@ -316,15 +340,16 @@ namespace GrindAndGlory
             float dist = toPlayer.magnitude;
             Vector2 dir = dist > 0.001f ? (toPlayer / dist) : Vector2.right;
 
-            // Movement + Knockback + Charge
+            // Movement + Knockback + Charge + Boss Enrage Speed Boost
             float speedMult = Mathf.Clamp(1.0f - _slowRatio, 0.25f, 1.0f);
-            float moveSpeed = Definition.Speed * 0.85f * speedMult;
+            float baseSpeedFactor = Definition.Category == MonsterCategory.Regular ? 0.85f : (_isEnraged ? 1.32f : 1.05f);
+            float moveSpeed = Definition.Speed * baseSpeedFactor * speedMult;
 
             if (_chargeDurationTimer > 0f)
             {
                 _chargeDurationTimer -= dt;
                 dir = _chargeDir;
-                moveSpeed *= 2.2f;
+                moveSpeed *= Definition.Category == MonsterCategory.Regular ? 2.2f : 2.8f;
             }
 
             Vector2 desiredPos = myPos + dir * (moveSpeed * dt) + _knockbackVel * dt;
@@ -344,7 +369,7 @@ namespace GrindAndGlory
                 {
                     _spriteRenderer.flipX = dir.x > 0f;
                 }
-                _spriteRenderer.sortingOrder = Mathf.RoundToInt(-desiredPos.y * 100f);
+                _spriteRenderer.sortingOrder = MapEnvironmentBuilder.GetEntitySortingOrder(desiredPos.y);
             }
 
             if (_animator != null && _chargeDurationTimer <= 0f)
@@ -353,12 +378,13 @@ namespace GrindAndGlory
             }
 
             // Contact Attack against Player
-            float hitRange = Definition.Category == MonsterCategory.Regular ? 0.72f : 1.15f;
+            float hitRange = Definition.Category == MonsterCategory.Regular ? 0.72f : 1.25f;
             if (dist <= hitRange && _contactCooldown <= 0f)
             {
-                _contactCooldown = 0.75f;
+                _contactCooldown = Definition.Category == MonsterCategory.Regular ? 0.75f : 0.55f;
                 if (_animator != null) _animator.PlayOneShot("attack", "run");
-                player.TakeDamageFromMonster(Definition.Strength, Definition.DisplayName);
+                float contactStr = Definition.Category == MonsterCategory.Regular ? Definition.Strength : Definition.Strength * (_isEnraged ? 1.55f : 1.30f);
+                player.TakeDamageFromMonster(contactStr, Definition.DisplayName);
                 if (Definition.AppliesBurn || Definition.AppliesBleed)
                 {
                     player.ApplyMonsterStatusEffect(Definition.AppliesBurn, Definition.AppliesBleed);
@@ -367,7 +393,7 @@ namespace GrindAndGlory
 
             // Special / Ranged / Boss Skills
             _specialAttackTimer -= dt;
-            if (_specialAttackTimer <= 0f && dist <= 11f)
+            if (_specialAttackTimer <= 0f && dist <= 13.5f)
             {
                 ExecuteSpecialPattern(player, dir, dist);
             }
@@ -375,49 +401,62 @@ namespace GrindAndGlory
 
         private void ExecuteSpecialPattern(PlayerController player, Vector2 dirToPlayer, float dist)
         {
-            _specialAttackTimer = Definition.Category == MonsterCategory.FinalBoss ? 2.6f :
-                                  (Definition.Category == MonsterCategory.MiniBoss ? 3.2f : 4.2f);
+            float baseCd = Definition.Category == MonsterCategory.FinalBoss ? 1.55f :
+                           (Definition.Category == MonsterCategory.MiniBoss ? 2.0f : 4.2f);
+            if (_isEnraged) baseCd *= 0.68f;
+            _specialAttackTimer = baseCd;
 
-            if (Definition.HasChargeAttack && dist > 1.8f && dist < 8.5f)
+            bool isBoss = Definition.Category != MonsterCategory.Regular;
+            float bossDmg = Definition.Strength * (_isEnraged ? 1.45f : 1.25f);
+
+            // 1. Charge Attack (Mọi Boss đều có thể xung kích tốc độ cao khi ở xa)
+            if ((Definition.HasChargeAttack || isBoss) && dist > 1.8f && dist < 11.5f)
             {
                 _chargeDir = dirToPlayer;
-                _chargeDurationTimer = 0.45f;
+                _chargeDurationTimer = isBoss ? 0.55f : 0.45f;
                 if (_animator != null) _animator.PlayOneShot("dash", "run");
-                if (Definition.Category != MonsterCategory.Regular)
+                if (isBoss)
                 {
-                    FloatingTextPopup.Spawn(transform.position, "XUNG KÍCH!", new Color(1f, 0.5f, 0.2f), 0.14f);
+                    FloatingTextPopup.Spawn(transform.position, _isEnraged ? "BẠO KÍCH CUỒNG NỘ!" : "XUNG KÍCH!", new Color(1f, 0.45f, 0.15f), 0.15f);
                 }
             }
 
-            if (Definition.HasRangedAttack && dist < 9.5f)
+            // 2. Ranged Barrage (Boss bắn loạt đạn tỏa 5-8 hướng ép góc di chuyển của người chơi)
+            if ((Definition.HasRangedAttack || isBoss) && dist < 12.5f)
             {
                 if (_animator != null) _animator.PlayOneShot("attack", "run");
-                int count = Definition.Category == MonsterCategory.FinalBoss ? 3 :
-                            (Definition.Category == MonsterCategory.MiniBoss ? 2 : 1);
+                int count = Definition.Category == MonsterCategory.FinalBoss ? (_isEnraged ? 8 : 5) :
+                            (Definition.Category == MonsterCategory.MiniBoss ? (_isEnraged ? 5 : 3) : 1);
+                float spreadStep = Definition.Category == MonsterCategory.FinalBoss && _isEnraged ? 45f : 18f;
                 float baseAngle = Mathf.Atan2(dirToPlayer.y, dirToPlayer.x) * Mathf.Rad2Deg;
                 for (int i = 0; i < count; i++)
                 {
-                    float offsetAngle = (i - (count - 1) * 0.5f) * 18f;
+                    float offsetAngle = (i - (count - 1) * 0.5f) * spreadStep;
                     float rad = (baseAngle + offsetAngle) * Mathf.Deg2Rad;
                     Vector2 shootDir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
-                    CombatProjectile.SpawnEnemyProjectile(transform.position, shootDir, Definition.Strength, Definition.AppliesBurn, Definition.AppliesBleed);
+                    CombatProjectile.SpawnEnemyProjectile(transform.position, shootDir, isBoss ? bossDmg : Definition.Strength, Definition.AppliesBurn, Definition.AppliesBleed);
                 }
             }
 
-            if (Definition.HasAoEAttack && dist < 4.5f)
+            // 3. Boss Ground Shockwave AoE
+            if ((Definition.HasAoEAttack || isBoss) && dist < 5.5f)
             {
                 if (_animator != null) _animator.PlayOneShot("skill", "run");
-                CombatAoEEffect.SpawnBossShockwave(transform.position, Definition.Category == MonsterCategory.FinalBoss ? 3.2f : 2.3f, Definition.Strength * 1.15f, Definition.AppliesBurn, Definition.AppliesBleed);
+                float shockRadius = Definition.Category == MonsterCategory.FinalBoss ? (_isEnraged ? 4.0f : 3.4f) : 2.6f;
+                CombatAoEEffect.SpawnBossShockwave(transform.position, shockRadius, bossDmg * 1.2f, Definition.AppliesBurn, Definition.AppliesBleed);
             }
 
-            if (Definition.SummonsMinions && ActiveEnemies.Count < 35)
+            // 4. Minion Summon
+            if ((Definition.SummonsMinions || (Definition.Category == MonsterCategory.FinalBoss && _isEnraged)) && ActiveEnemies.Count < 35)
             {
+                string minionId = Definition.StagesAppearing != null && Definition.StagesAppearing.Length > 0 && Definition.StagesAppearing[0] == 1 ? "goblin" :
+                                  (Definition.StagesAppearing != null && Definition.StagesAppearing.Length > 0 && Definition.StagesAppearing[0] == 2 ? "vampire_bat" : "lava_slime");
                 for (int i = 0; i < 2; i++)
                 {
-                    Vector2 offset = UnityEngine.Random.insideUnitCircle.normalized * 2.2f;
-                    SpawnMonster("lava_slime", (Vector2)transform.position + offset, 0.8f);
+                    Vector2 offset = UnityEngine.Random.insideUnitCircle.normalized * 2.4f;
+                    SpawnMonster(minionId, (Vector2)transform.position + offset, 1.1f);
                 }
-                FloatingTextPopup.Spawn(transform.position, "TRIỆU HỒI ÁC QUỶ!", new Color(1f, 0.35f, 0.2f), 0.16f);
+                FloatingTextPopup.Spawn(transform.position, "TRIỆU HỒI HỘ VỆ!", new Color(1f, 0.35f, 0.2f), 0.16f);
             }
         }
 
@@ -431,12 +470,12 @@ namespace GrindAndGlory
             {
                 _freezeVfxObj = new GameObject("FreezingVFX");
                 _freezeVfxObj.transform.SetParent(transform, false);
-                _freezeVfxObj.transform.localPosition = new Vector3(0f, 0.45f, 0f);
-                _freezeVfxObj.transform.localScale = Vector3.one * 0.75f;
+                _freezeVfxObj.transform.localPosition = new Vector3(0f, 0.38f, 0f);
+                _freezeVfxObj.transform.localScale = Vector3.one * 0.85f;
                 SpriteRenderer sr = _freezeVfxObj.AddComponent<SpriteRenderer>();
+                sr.sprite = ResourceCache.GetSprite("Sprites/fx_ice_burst", 48f);
+                sr.color = new Color(0.65f, 0.95f, 1f, 0.9f);
                 sr.sortingOrder = 2200;
-                SpriteAnimator anim = _freezeVfxObj.AddComponent<SpriteAnimator>();
-                anim.Initialize("freezing", 64f, 12f, false, true, "attack");
             }
             _freezeVfxObj.SetActive(true);
             UpdateTintColor();
@@ -475,8 +514,23 @@ namespace GrindAndGlory
         {
             if (IsDead) return;
 
-            float finalDamage = Mathf.Max(1f, rawWeaponDamage);
+            // Boss Armor (Giáp Boss giảm sát thương nhận vào để trận đánh Boss kịch tính hơn)
+            float armorMult = Definition.Category == MonsterCategory.FinalBoss ? 0.58f :
+                              (Definition.Category == MonsterCategory.MiniBoss ? 0.68f : 1.0f);
+            float finalDamage = Mathf.Max(1f, rawWeaponDamage * armorMult);
             CurrentHP -= finalDamage;
+
+            // Kích hoạt trạng thái Cuồng Nộ (Enrage) khi Boss còn dưới 50% HP
+            if (!_isEnraged && Definition.Category != MonsterCategory.Regular && CurrentHP > 0f && CurrentHP <= MaxHP * 0.5f)
+            {
+                _isEnraged = true;
+                _specialAttackTimer = 0.2f;
+                FloatingTextPopup.Spawn(transform.position + Vector3.up * 0.4f, "BOSS CUỒNG NỘ!", new Color(1f, 0.25f, 0.25f), 0.18f);
+                if (GrindAndGloryManager.Instance != null)
+                {
+                    GrindAndGloryManager.Instance.ShowBannerMessage($"CẢNH BÁO: {Definition.DisplayName} ĐÃ VÀO TRẠNG THÁI CUỒNG NỘ (<50% HP)!\nTốc độ di chuyển, sát thương và tần suất tung chiêu tăng mạnh!");
+                }
+            }
 
             Color popCol = isCritOrHeavy ? new Color(1f, 0.85f, 0.2f) : Color.white;
             FloatingTextPopup.Spawn(transform.position, Mathf.RoundToInt(finalDamage).ToString(), popCol, isCritOrHeavy ? 0.16f : 0.13f);

@@ -24,6 +24,16 @@ namespace GrindAndGlory
             Instance = this;
         }
 
+        /// <summary>
+        /// Tính sortingOrder chuẩn cho mọi thực thể (Nhân vật, Quái vật, Chướng ngại vật, Vật phẩm rơi)
+        /// Đảm bảo luôn nằm trong dải [200..800], cao hơn hẳn mặt đất (-10000) và vòng Hào quang (-500)
+        /// ở mọi tọa độ Y trên toàn bản đồ (tránh lỗi đi lên phía Bắc Y > 10 bị chìm dưới mặt đất).
+        /// </summary>
+        public static int GetEntitySortingOrder(float worldY, int offset = 0)
+        {
+            return 500 + Mathf.RoundToInt(-worldY * 12f) + offset;
+        }
+
         public void BuildStageMap(int stageNumber)
         {
             if (_mapRoot != null)
@@ -56,7 +66,7 @@ namespace GrindAndGlory
                     SpriteRenderer sr = tile.AddComponent<SpriteRenderer>();
                     sr.sprite = isPath ? pathGround : mainGround;
                     sr.color = stage.AmbientTint;
-                    sr.sortingOrder = -1000;
+                    sr.sortingOrder = isPath ? -9995 : -10000;
                 }
             }
 
@@ -140,7 +150,7 @@ namespace GrindAndGlory
             Sprite sp = ResourceCache.GetSprite(spritePath, 64f, new Vector2(0.5f, 0.2f));
             SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = sp;
-            sr.sortingOrder = Mathf.RoundToInt(-pos.y * 100f);
+            sr.sortingOrder = GetEntitySortingOrder(pos.y);
         }
 
         private void CreateInteriorObstacle(Transform parent, Vector2 pos, string spritePath, int index)
@@ -152,7 +162,7 @@ namespace GrindAndGlory
             Sprite sp = ResourceCache.GetSprite(spritePath, 64f, new Vector2(0.5f, 0.2f));
             SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = sp;
-            sr.sortingOrder = Mathf.RoundToInt(-pos.y * 100f);
+            sr.sortingOrder = GetEntitySortingOrder(pos.y);
 
             // Normalize scale if very large prop
             if (sp != null && sp.rect.height > 180f)

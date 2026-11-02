@@ -21,14 +21,15 @@ namespace GrindAndGlory
                 return cached;
             }
 
-            Texture2D tex = Resources.Load<Texture2D>(resourcePath);
+            Texture2D tex = TryLoadTextureFromDisk(resourcePath);
             if (tex == null)
             {
-                tex = TryLoadTextureFromDisk(resourcePath);
+                tex = Resources.Load<Texture2D>(resourcePath);
             }
             if (tex != null)
             {
-                tex.filterMode = FilterMode.Point;
+                tex.filterMode = FilterMode.Trilinear;
+                tex.anisoLevel = 4;
                 tex.wrapMode = TextureWrapMode.Clamp;
                 Vector2 pivot = customPivot ?? new Vector2(0.5f, 0.5f);
                 Sprite sp = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), pivot, pixelsPerUnit);
@@ -101,19 +102,22 @@ namespace GrindAndGlory
         private static List<Sprite> LoadStateFramesInternal(string entityFolder, string stateName, float pixelsPerUnit, Vector2 pivot)
         {
             List<Sprite> list = new List<Sprite>();
+            // Các frame hoạt ảnh đã được nâng cấp độ phân giải 2x Smooth HD (2W x 2H) nên nhân đôi PPU để giữ nguyên kích thước vật lý mà nét gấp 4 lần
+            float hdPixelsPerUnit = pixelsPerUnit * 2.0f;
             for (int i = 0; i < 20; i++)
             {
                 string path = $"Animations/{entityFolder}/{stateName}_{i:D2}";
-                Texture2D tex = Resources.Load<Texture2D>(path);
+                Texture2D tex = TryLoadTextureFromDisk(path);
                 if (tex == null)
                 {
-                    tex = TryLoadTextureFromDisk(path);
+                    tex = Resources.Load<Texture2D>(path);
                 }
                 if (tex != null)
                 {
-                    tex.filterMode = FilterMode.Point;
+                    tex.filterMode = FilterMode.Trilinear;
+                    tex.anisoLevel = 4;
                     tex.wrapMode = TextureWrapMode.Clamp;
-                    Sprite sp = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), pivot, pixelsPerUnit);
+                    Sprite sp = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), pivot, hdPixelsPerUnit);
                     sp.name = $"{entityFolder}_{stateName}_{i:D2}";
                     list.Add(sp);
                     continue;
@@ -148,10 +152,11 @@ namespace GrindAndGlory
             if (!File.Exists(filePath)) return null;
 
             byte[] bytes = File.ReadAllBytes(filePath);
-            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, true);
             if (ImageConversion.LoadImage(tex, bytes))
             {
-                tex.filterMode = FilterMode.Point;
+                tex.filterMode = FilterMode.Trilinear;
+                tex.anisoLevel = 4;
                 tex.wrapMode = TextureWrapMode.Clamp;
                 return tex;
             }

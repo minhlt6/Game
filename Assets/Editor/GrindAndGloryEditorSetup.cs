@@ -115,7 +115,7 @@ namespace GrindAndGlory.Editor
                 camObj.tag = "MainCamera";
                 Camera cam = camObj.AddComponent<Camera>();
                 cam.orthographic = true;
-                cam.orthographicSize = 6.8f;
+                cam.orthographicSize = 8.2f;
                 cam.backgroundColor = new Color(0.07f, 0.08f, 0.11f, 1f);
                 cam.clearFlags = CameraClearFlags.SolidColor;
                 camObj.transform.position = new Vector3(0f, 0f, -10f);
@@ -213,14 +213,14 @@ namespace GrindAndGlory.Editor
                 Mathf.Abs(takenFromSlime - 1.0f) < 0.01f && Mathf.Abs(takenFromGolem - 20.4f) < 0.01f,
                 $"SlimeHit={takenFromSlime:0.0} (Expected 1.0), GolemHit={takenFromGolem:0.0} (Expected 20.4)");
 
-            // 3. Kiểm thử các mốc EXP lên cấp (Phần 3.1 Note)
-            int expLv1 = GameDatabase.GetCumulativeExpThreshold(1);   // 5
-            int expLv5 = GameDatabase.GetCumulativeExpThreshold(5);   // 25
-            int expLv10 = GameDatabase.GetCumulativeExpThreshold(10); // 75
-            int expLv20 = GameDatabase.GetCumulativeExpThreshold(20); // 275
-            int expLv30 = GameDatabase.GetCumulativeExpThreshold(30); // 675
+            // 3. Kiểm thử các mốc EXP lên cấp (Đã cân bằng nhịp độ tăng cấp ~30 EXP/cấp giai đoạn đầu)
+            int expLv1 = GameDatabase.GetCumulativeExpThreshold(1);   // 30
+            int expLv5 = GameDatabase.GetCumulativeExpThreshold(5);   // 150
+            int expLv10 = GameDatabase.GetCumulativeExpThreshold(10); // 450
+            int expLv20 = GameDatabase.GetCumulativeExpThreshold(20); // 1450
+            int expLv30 = GameDatabase.GetCumulativeExpThreshold(30); // 3250
             AssertTest("TC-MATH-03", "Kiểm tra các mốc EXP tích lũy từ Level 1 đến Level 30",
-                expLv1 == 5 && expLv5 == 25 && expLv10 == 75 && expLv20 == 275 && expLv30 == 675,
+                expLv1 == 30 && expLv5 == 150 && expLv10 == 450 && expLv20 == 1450 && expLv30 == 3250,
                 $"Lv1={expLv1}, Lv5={expLv5}, Lv10={expLv10}, Lv20={expLv20}, Lv30={expLv30}");
 
             // 4. Kiểm thử đầy đủ 9 Vũ khí & 5 Kỹ năng Nội tại
@@ -327,13 +327,15 @@ namespace GrindAndGlory.Editor
             GameObject testPlayerObj = new GameObject("TestPlayer");
             PlayerController testPlayer = testPlayerObj.AddComponent<PlayerController>();
             testPlayer.InitializeHero(HeroId.Mercy);
-            testPlayer.GainExp(5); // Level 1 -> Level 2
+            testPlayer.GainExp(30); // Level 1 -> Level 2
             var choices = testPlayer.GenerateUpgradeChoices();
             testPlayer.ApplyUpgradeOption(choices[0]);
+            bool hasHeldWeapon = testPlayer.transform.Find("MountedWeaponsRoot") != null;
+            int northEdgeSorting = MapEnvironmentBuilder.GetEntitySortingOrder(16f, 2);
 
-            AssertTest("TC-LOOP-01", "Kiểm tra vòng lặp nhận EXP -> Lên cấp (Level Up) -> Sinh 3 thẻ nâng cấp -> Áp dụng nâng cấp",
-                testPlayer.CurrentLevel == 2 && choices.Count == 3,
-                $"Player reached Lv.{testPlayer.CurrentLevel}, Generated {choices.Count} upgrade cards, First card={choices[0].Title}");
+            AssertTest("TC-LOOP-01", "Kiểm tra vòng lặp nhận EXP -> Lên cấp (Level Up) -> Cầm Vũ khí trên tay & SortingOrder an toàn mọi vị trí",
+                testPlayer.CurrentLevel == 2 && choices.Count == 3 && hasHeldWeapon && northEdgeSorting > 0,
+                $"Player reached Lv.{testPlayer.CurrentLevel}, HeldWeapon={hasHeldWeapon}, NorthY16Sort={northEdgeSorting} (> Ground -10000)");
 
             // 8. Kiểm thử Nâng cấp Vũ khí từ Lv.1 -> Lv.5 và giới hạn Max Level 5
             testPlayer.InitializeHero(HeroId.Mercy); // Reset Lv.1 (STR=18, weapon_00 Lv.1)

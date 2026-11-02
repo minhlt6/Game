@@ -46,9 +46,23 @@ namespace GrindAndGlory
         private SpriteRenderer _spriteRenderer;
         private SpriteAnimator _animator;
         private GameObject _auraVisualObj;
+        private Transform _auraInnerObj;
         private GameObject _statusVfxObj;
         private SpriteAnimator _statusVfxAnim;
         private Transform _worldHpFill;
+
+        // Held Weapon & Floating Sub-Weapon Mounts (Cầm súng ngắm bắn thay vì ném súng)
+        private class MountedWeaponVisual
+        {
+            public string WeaponId;
+            public Transform Pivot;
+            public Transform InnerSprite;
+            public SpriteRenderer Renderer;
+            public Vector3 BaseLocalPos;
+            public float RecoilOffset;
+        }
+        private readonly Dictionary<string, MountedWeaponVisual> _mountedWeapons = new Dictionary<string, MountedWeaponVisual>();
+        private Vector2 _currentAimDir = Vector2.right;
 
         private float _dashActiveTimer;
         private float _dashCooldownTimer;
@@ -104,15 +118,17 @@ namespace GrindAndGlory
             // Equip starting main weapon at Level 1
             EquipOrUpgradeWeapon(HeroDef.StartingWeaponId);
 
-            // Visual setup
+            // Visual setup (PPU = 58f giúp nhân vật gọn gàng, cân đối với góc nhìn toàn cảnh)
             _spriteRenderer = GetComponent<SpriteRenderer>();
             if (_spriteRenderer == null) _spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+            _spriteRenderer.sortingOrder = MapEnvironmentBuilder.GetEntitySortingOrder(transform.position.y, 2);
 
             _animator = GetComponent<SpriteAnimator>();
             if (_animator == null) _animator = gameObject.AddComponent<SpriteAnimator>();
-            _animator.Initialize(HeroDef.AssetFolder, 56f, 10f, false);
+            _animator.Initialize(HeroDef.AssetFolder, 58f, 10f, false);
 
             CreateWorldPlayerHud();
+            RebuildMountedWeaponVisuals();
             UpdateAuraVisual();
         }
 
@@ -237,7 +253,172 @@ namespace GrindAndGlory
                 WeaponOrder.Add(weaponId);
                 _weaponCooldownTimers[weaponId] = 0.15f;
             }
+            RebuildMountedWeaponVisuals();
             UpdateAuraVisual();
+        }
+
+        private static bool IsHoldableWeapon(string weaponId)
+        {
+            return weaponId == "weapon_00" ||
+                   weaponId == "weapon_04" ||
+                   weaponId == "weapon_06_1" ||
+                   weaponId == "weapon_02_1" ||
+                   weaponId == "weapon_05_4" ||
+                   weaponId == "weapon_08";
+        }
+
+        private void RebuildMountedWeaponVisuals()
+        {
+            Transform oldContainer = transform.Find("MountedWeaponsRoot");
+            if (oldContainer != null) Destroy(oldContainer.gameObject);
+            _mountedWeapons.Clear();
+
+            GameObject root = new GameObject("MountedWeaponsRoot");
+            root.transform.SetParent(transform, false);
+            root.transform.localPosition = Vector3.zero;
+
+            // Slot 0 = Held in hand; Slots 1..3 = Floating tactical mounts around shoulders/back
+            Vector3[] mountOffsets = new Vector3[]
+            {
+                new Vector3(0.22f, 0.25f, 0f),  // Primary held in character's hand
+                new Vector3(-0.34f, 0.48f, 0f), // Left shoulder tactical gun mount
+                new Vector3(0.34f, 0.50f, 0f),  // Right shoulder tactical gun mount
+                new Vector3(0.0f, 0.68f, 0f)    // Top floating weapon mount
+            };
+
+            int mountIdx = 0;
+            for (int i = 0; i < WeaponOrder.Count; i++)
+            {
+                string wId = WeaponOrder[i];
+                if (!IsHoldableWeapon(wId)) continue;
+                if (!GameDatabase.Weapons.TryGetValue(wId, out WeaponDefinition wDef)) continue;
+
+                Vector3 baseOffset = mountOffsets[Mathf.Min(mountIdx, mountOffsets.Length - 1)];
+                GameObject pivotObj = new GameObject($"HeldWeapon_{wId}");
+                pivotObj.transform.SetParent(root.transform, false);
+                pivotObj.transform.localPosition = baseOffset;
+
+                GameObject innerObj = new GameObject("Sprite");
+                innerObj.transform.SetParent(pivotObj.transform, false);
+                innerObj.transform.localPosition = new Vector3(0.10f, 0f, 0f);
+
+                SpriteRenderer sr = innerObj.AddComponent<SpriteRenderer>();
+                sr.sprite = ResourceCache.GetSprite(wDef.IconSprite, 56f);
+                sr.sortingOrder = MapEnvironmentBuilder.GetEntitySortingOrder(transform.position.y, 6 + mountIdx);
+
+                // Normalize sprite orientation so barrel points along +X (0 degrees) in Pivot space:
+                // weapon_00 and weapon_04 are drawn tilted at 145 deg (pointing up-left), while weapon_02_1, weapon_05_4, weapon_08 point right (0 deg)
+                if (wId == "weapon_00" || wId == "weapon_04")
+                {
+                    sr.flipX = true;
+                    innerObj.transform.localRotation = Quaternion.Euler(0f, 0f, -35f);
+                    innerObj.transform.localScale = Vector3.one * 0.95f;
+                }
+                else if (wId == "weapon_06_1")
+                {
+                    sr.flipX = false;
+                    innerObj.transform.localRotation = Quaternion.identity;
+                    innerObj.transform.localScale = Vector3.one * 0.88f;
+                }
+                else
+                {
+                    sr.flipX = false;
+                    innerObj.transform.localRotation = Quaternion.identity;
+                    innerObj.transform.localScale = Vector3.one * 0.95f;
+                }
+
+                _mountedWeapons[wId] = new MountedWeaponVisual
+                {
+                    WeaponId = wId,
+                    Pivot = pivotObj.transform,
+                    InnerSprite = innerObj.transform,
+                    Renderer = sr,
+                    BaseLocalPos = baseOffset,
+                    RecoilOffset = 0f
+                };
+                mountIdx++;
+            }
+        }
+
+        private Vector2 TriggerWeaponFireVisual(string weaponId, Vector2 aimDir, Color flashColor)
+        {
+            Vector2 normAim = aimDir.sqrMagnitude > 0.001f ? aimDir.normalized : Vector2.right;
+            _currentAimDir = normAim;
+
+            if (_mountedWeapons.TryGetValue(weaponId, out MountedWeaponVisual m) && m.Pivot != null)
+            {
+                m.RecoilOffset = 0.16f;
+                float angle = Mathf.Atan2(normAim.y, normAim.x) * Mathf.Rad2Deg;
+                m.Pivot.localRotation = Quaternion.Euler(0f, 0f, angle);
+                bool facingLeft = Mathf.Abs(angle) > 90f;
+                m.Pivot.localScale = new Vector3(1f, facingLeft ? -1f : 1f, 1f);
+
+                Vector2 muzzleWorldPos = (Vector2)m.Pivot.position + normAim * 0.42f;
+                CombatAoEEffect.SpawnMuzzleFlash(muzzleWorldPos, normAim, flashColor, 0.85f);
+                return muzzleWorldPos;
+            }
+
+            Vector2 fallbackMuzzle = (Vector2)transform.position + new Vector2(0f, 0.35f) + normAim * 0.45f;
+            CombatAoEEffect.SpawnMuzzleFlash(fallbackMuzzle, normAim, flashColor, 0.80f);
+            return fallbackMuzzle;
+        }
+
+        private void UpdateMountedWeaponsAimAndSorting(float dt)
+        {
+            Vector2 targetDir = GetSmartTargetDirection(9.5f, false);
+            if (targetDir.sqrMagnitude > 0.001f)
+            {
+                _currentAimDir = Vector2.Lerp(_currentAimDir, targetDir.normalized, dt * 16f).normalized;
+            }
+
+            float aimAngle = Mathf.Atan2(_currentAimDir.y, _currentAimDir.x) * Mathf.Rad2Deg;
+            bool aimLeft = Mathf.Abs(aimAngle) > 90f;
+            int baseSort = MapEnvironmentBuilder.GetEntitySortingOrder(transform.position.y, 2);
+
+            int idx = 0;
+            foreach (var kv in _mountedWeapons)
+            {
+                MountedWeaponVisual m = kv.Value;
+                if (m == null || m.Pivot == null) continue;
+
+                if (m.RecoilOffset > 0f)
+                {
+                    m.RecoilOffset = Mathf.Max(0f, m.RecoilOffset - dt * 1.1f);
+                }
+
+                Vector3 basePos = m.BaseLocalPos;
+                if (idx == 0)
+                {
+                    // Primary weapon held in front hand tracks left/right aim side
+                    basePos.x = aimLeft ? -Mathf.Abs(m.BaseLocalPos.x) : Mathf.Abs(m.BaseLocalPos.x);
+                }
+                else
+                {
+                    // Gentle floating bob for shoulder/tactical sub-weapons
+                    basePos.y += Mathf.Sin(Time.time * 4.5f + idx * 1.5f) * 0.05f;
+                }
+
+                Vector3 recoilVec = -(Vector3)(_currentAimDir * m.RecoilOffset);
+                m.Pivot.localPosition = basePos + recoilVec;
+
+                if (m.WeaponId == "weapon_06_1")
+                {
+                    // Spellbook stays upright and bobs gently
+                    m.Pivot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(Time.time * 5f) * 8f);
+                    m.Pivot.localScale = Vector3.one;
+                }
+                else
+                {
+                    m.Pivot.localRotation = Quaternion.Euler(0f, 0f, aimAngle);
+                    m.Pivot.localScale = new Vector3(1f, aimLeft ? -1f : 1f, 1f);
+                }
+
+                if (m.Renderer != null)
+                {
+                    m.Renderer.sortingOrder = baseSort + 4 + idx;
+                }
+                idx++;
+            }
         }
 
         public void EquipOrUpgradePassive(string passiveId)
@@ -266,18 +447,24 @@ namespace GrindAndGlory
             {
                 _auraVisualObj = new GameObject("AwakenAuraRing");
                 _auraVisualObj.transform.SetParent(transform, false);
-                _auraVisualObj.transform.localPosition = Vector3.zero;
+                _auraVisualObj.transform.localPosition = new Vector3(0f, 0.1f, 0f);
                 SpriteRenderer sr = _auraVisualObj.AddComponent<SpriteRenderer>();
-                sr.sprite = ResourceCache.GetSprite("Sprites/fx_aura_ring", 64f);
-                sr.color = new Color(1f, 0.92f, 0.55f, 0.85f);
-                sr.sortingOrder = -5;
+                sr.sprite = ResourceCache.GetSprite("Sprites/fx_aura_ring", 48f);
+                sr.color = new Color(1f, 0.94f, 0.55f, 0.92f);
+                sr.sortingOrder = -500; // Always above ground (-10000), always below entities (300..700)
 
-                SpriteAnimator auraAnim = _auraVisualObj.AddComponent<SpriteAnimator>();
-                auraAnim.Initialize("awaken_aura", 64f, 10f, false, true, "idle");
+                GameObject inner = new GameObject("AuraInnerRune");
+                inner.transform.SetParent(_auraVisualObj.transform, false);
+                inner.transform.localScale = Vector3.one * 0.72f;
+                SpriteRenderer isr = inner.AddComponent<SpriteRenderer>();
+                isr.sprite = ResourceCache.GetSprite("Sprites/fx_aura_ring", 48f);
+                isr.color = new Color(0.55f, 0.98f, 1f, 0.85f);
+                isr.sortingOrder = -499;
+                _auraInnerObj = inner.transform;
             }
             _auraVisualObj.SetActive(true);
             float radiusMult = 1.0f + (auraLv - 1) * 0.12f;
-            _auraVisualObj.transform.localScale = Vector3.one * (1.85f * radiusMult);
+            _auraVisualObj.transform.localScale = Vector3.one * (1.65f * radiusMult);
         }
 
         public void ApplyMonsterStatusEffect(bool burn, bool bleed)
@@ -415,7 +602,7 @@ namespace GrindAndGlory
                     {
                         _spriteRenderer.flipX = LastMoveDirection.x > 0f;
                     }
-                    _spriteRenderer.sortingOrder = Mathf.RoundToInt(-desiredPos.y * 100f);
+                    _spriteRenderer.sortingOrder = MapEnvironmentBuilder.GetEntitySortingOrder(desiredPos.y, 2);
                 }
 
                 if (_animator != null && _dashActiveTimer <= 0f)
@@ -425,11 +612,18 @@ namespace GrindAndGlory
             }
             else
             {
+                if (_spriteRenderer != null)
+                {
+                    _spriteRenderer.sortingOrder = MapEnvironmentBuilder.GetEntitySortingOrder(transform.position.y, 2);
+                }
                 if (_animator != null && _dashActiveTimer <= 0f)
                 {
                     _animator.Play("idle", true, false);
                 }
             }
+
+            // Update Held Weapons & Floating Sub-Weapon Mounts Aiming
+            UpdateMountedWeaponsAimAndSorting(dt);
 
             // 2. Passive Skill: Hồi Phục 1 / 2 (2% / 4% MaxHP every 3 seconds)
             int hoiPhucLv = GetPassiveLevel("hoi_phuc");
@@ -448,6 +642,7 @@ namespace GrindAndGlory
             if (_auraVisualObj != null && _auraVisualObj.activeSelf)
             {
                 _auraVisualObj.transform.Rotate(0f, 0f, 90f * dt);
+                if (_auraInnerObj != null) _auraInnerObj.Rotate(0f, 0f, -150f * dt);
             }
 
             // 4. Auto-Attack Cycle for all Equipped Weapons
@@ -537,26 +732,30 @@ namespace GrindAndGlory
 
             switch (wDef.Id)
             {
-                case "weapon_00": // Kiếm Ánh Sáng (Mercy)
+                case "weapon_00": // Kiếm / Súng Năng Lượng Ánh Sáng (Mercy)
                 {
-                    float range = 2.35f * (1f + (wLv - 1) * wDef.RangeOrRadiusBonusPerLevel);
-                    Vector2 slashDir = GetSmartTargetDirection(range + 0.8f, true);
+                    float range = 2.45f * (1f + (wLv - 1) * wDef.RangeOrRadiusBonusPerLevel);
+                    Vector2 slashDir = GetSmartTargetDirection(range + 2.5f, true);
+                    Vector2 muzzlePos = TriggerWeaponFireVisual("weapon_00", slashDir, new Color(1f, 0.92f, 0.45f, 1f));
                     CombatAoEEffect.SpawnSlashArc(origin, slashDir, range, totalDmg, false, 1.8f);
+                    // Phóng thêm đạn kiếm khí ánh sáng xuyên mục tiêu từ nòng vũ khí cầm tay
+                    CombatProjectile.SpawnPlayerLinearProjectile(muzzlePos, slashDir, 13.0f, totalDmg * 0.55f, "Sprites/fx_bullet_gold", 2, 0f, 0f, 1.15f);
                     if (_animator != null) _animator.PlayOneShot("attack", "idle");
                     if (AudioManager.Instance != null) AudioManager.Instance.PlaySfx("sfx_slash", 0.55f);
                     break;
                 }
-                case "weapon_04": // Trượng Nguyên Tố (Inirius - Fire/Burn)
+                case "weapon_04": // Trượng / Súng Nguyên Tố Lửa (Inirius - Fire/Burn)
                 {
                     int count = 1 + (wLv - 1) * wDef.ExtraProjectilesPerLevel;
                     Vector2 aimDir = GetSmartTargetDirection(9.5f, false);
+                    Vector2 muzzlePos = TriggerWeaponFireVisual("weapon_04", aimDir, new Color(1f, 0.65f, 0.2f, 1f));
                     float baseAng = Mathf.Atan2(aimDir.y, aimDir.x) * Mathf.Rad2Deg;
                     for (int k = 0; k < count; k++)
                     {
                         float offset = (k - (count - 1) * 0.5f) * 12f;
                         float rad = (baseAng + offset) * Mathf.Deg2Rad;
                         Vector2 fireDir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
-                        CombatProjectile.SpawnPlayerLinearProjectile(origin + fireDir * 0.45f, fireDir, 9.2f, totalDmg, "Sprites/fx_proj_fire", 2, 0f, 0f, 1.05f, "fire", true);
+                        CombatProjectile.SpawnPlayerLinearProjectile(muzzlePos, fireDir, 10.2f, totalDmg, "Sprites/fx_proj_fire", 2, 0f, 0f, 1.15f, "", true);
                     }
                     if (_animator != null) _animator.PlayOneShot("attack", "idle");
                     if (AudioManager.Instance != null) AudioManager.Instance.PlaySfx("sfx_fireball", 0.55f);
@@ -567,49 +766,54 @@ namespace GrindAndGlory
                     float slowPct = wDef.SlowPercentBase + (wLv - 1) * wDef.SlowPercentPerLevel;
                     int rays = wLv >= 3 ? 2 : 1;
                     Vector2 aimDir = GetSmartTargetDirection(9.5f, false);
+                    Vector2 muzzlePos = TriggerWeaponFireVisual("weapon_06_1", aimDir, new Color(0.55f, 0.95f, 1f, 1f));
                     float baseAng = Mathf.Atan2(aimDir.y, aimDir.x) * Mathf.Rad2Deg;
                     for (int k = 0; k < rays; k++)
                     {
                         float offset = (k - (rays - 1) * 0.5f) * 14f;
                         float rad = (baseAng + offset) * Mathf.Deg2Rad;
                         Vector2 iceDir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
-                        CombatProjectile.SpawnPlayerLinearProjectile(origin + iceDir * 0.45f, iceDir, 10.0f, totalDmg, "Sprites/fx_proj_ice", 3, slowPct, 240f, 1.0f);
+                        CombatProjectile.SpawnPlayerLinearProjectile(muzzlePos, iceDir, 10.8f, totalDmg, "Sprites/fx_proj_ice", 3, slowPct, 0f, 1.15f);
                     }
                     if (_animator != null) _animator.PlayOneShot("attack", "idle");
                     if (AudioManager.Instance != null) AudioManager.Instance.PlaySfx("sfx_ice", 0.55f);
                     break;
                 }
-                case "weapon_02_1": // Rìu Chiến Xoay
+                case "weapon_02_1": // Súng Tiểu Liên Xuyên Phá / Rìu Chiến (Cầm súng bắn đạn thay vì vứt súng)
                 {
-                    int axeCount = 1 + (wLv - 1) * wDef.ExtraProjectilesPerLevel;
-                    Vector2 aimDir = GetSmartTargetDirection(7.5f, false);
-                    for (int k = 0; k < axeCount; k++)
+                    int bulletCount = 1 + (wLv - 1) * wDef.ExtraProjectilesPerLevel;
+                    Vector2 aimDir = GetSmartTargetDirection(9.0f, false);
+                    Vector2 muzzlePos = TriggerWeaponFireVisual("weapon_02_1", aimDir, new Color(0.45f, 0.9f, 1f, 1f));
+                    for (int k = 0; k < bulletCount; k++)
                     {
-                        CombatProjectile.SpawnSpinningAxe(origin, aimDir, k, axeCount, totalDmg);
+                        CombatProjectile.SpawnSpinningAxe(muzzlePos, aimDir, k, bulletCount, totalDmg);
                     }
                     if (AudioManager.Instance != null) AudioManager.Instance.PlaySfx("sfx_slash", 0.45f);
                     break;
                 }
-                case "weapon_05_4": // Phi Tiêu Bóng Đêm
+                case "weapon_05_4": // Súng Laser Tốc Độ Cao / Phi Tiêu (Cầm súng bắn tia laser thay vì vứt súng)
                 {
-                    int shurikenCount = 1 + (wLv - 1) * wDef.ExtraProjectilesPerLevel;
-                    Vector2 aimDir = GetSmartTargetDirection(10.0f, false);
+                    int laserCount = 1 + (wLv - 1) * wDef.ExtraProjectilesPerLevel;
+                    Vector2 aimDir = GetSmartTargetDirection(10.5f, false);
+                    Vector2 muzzlePos = TriggerWeaponFireVisual("weapon_05_4", aimDir, new Color(0.55f, 1f, 0.45f, 1f));
                     float baseAng = Mathf.Atan2(aimDir.y, aimDir.x) * Mathf.Rad2Deg;
-                    for (int k = 0; k < shurikenCount; k++)
+                    for (int k = 0; k < laserCount; k++)
                     {
-                        float offset = (k - (shurikenCount - 1) * 0.5f) * 9f;
+                        float offset = (k - (laserCount - 1) * 0.5f) * 9f;
                         float rad = (baseAng + offset) * Mathf.Deg2Rad;
                         Vector2 sDir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
-                        CombatProjectile.SpawnPlayerLinearProjectile(origin + sDir * 0.4f, sDir, 13.5f, totalDmg, "Sprites/weapon_05_4", 2, 0f, 720f, 0.85f);
+                        CombatProjectile.SpawnPlayerLinearProjectile(muzzlePos, sDir, 14.5f, totalDmg, "Sprites/fx_bullet_laser", 2, 0f, 0f, 1.15f);
                     }
                     if (AudioManager.Instance != null) AudioManager.Instance.PlaySfx("sfx_slash", 0.35f);
                     break;
                 }
-                case "weapon_08": // Đại Đao Phán Quyết
+                case "weapon_08": // Đại Pháo / Đại Đao Phán Quyết (Bắn đạn đại bác nổ + sóng chấn động đẩy lùi)
                 {
-                    float range = 3.0f * (1f + (wLv - 1) * 0.08f);
-                    Vector2 cleaveDir = GetSmartTargetDirection(range + 0.8f, true);
+                    float range = 3.1f * (1f + (wLv - 1) * 0.08f);
+                    Vector2 cleaveDir = GetSmartTargetDirection(range + 2.5f, true);
+                    Vector2 muzzlePos = TriggerWeaponFireVisual("weapon_08", cleaveDir, new Color(1f, 0.65f, 0.2f, 1f));
                     CombatAoEEffect.SpawnSlashArc(origin, cleaveDir, range, totalDmg, true, 5.2f);
+                    CombatProjectile.SpawnPlayerLinearProjectile(muzzlePos, cleaveDir, 11.5f, totalDmg * 0.65f, "Sprites/fx_cannon_shell", 4, 0f, 0f, 1.25f, "", true);
                     if (AudioManager.Instance != null) AudioManager.Instance.PlaySfx("sfx_slash", 0.75f);
                     break;
                 }
@@ -654,6 +858,7 @@ namespace GrindAndGlory
                         if (e == null || e.IsDead) continue;
                         if (Vector2.Distance(origin, e.transform.position) <= auraRadius)
                         {
+                            CombatAoEEffect.SpawnImpactBurst(e.transform.position, "Sprites/fx_muzzle_flash", new Color(1f, 0.9f, 0.35f, 0.85f), 0.55f);
                             e.TakeWeaponDamage(tickDmg, false);
                         }
                     }

@@ -811,28 +811,28 @@ namespace GrindAndGlory
         }
 
         /// <summary>
-        /// Các mốc EXP tích lũy cần có để nhân vật lên cấp (Phần 3.1 Note):
-        /// - Level 1 - 5: 5 EXP mỗi level (Các mốc EXP: 5 - 10 - 15 - 20 - 25)
-        /// - Level 5 - 10: 10 EXP mỗi level (Các mốc EXP: 35 - 45 - 55 - 65 - 75)
-        /// - Level 10 - 20: 20 EXP mỗi level (Các mốc EXP: 95 - 115 - ... - 275)
-        /// - Level 20 - 30: 40 EXP mỗi level (Các mốc EXP: 315 - 355 - ... - 675)
+        /// Các mốc EXP tích lũy cần có để nhân vật lên cấp (Đã điều chỉnh chậm lại ~30 EXP/cấp đầu trận, ~30-40s chiến đấu mỗi cấp):
+        /// - Level 1 - 5: 30 EXP mỗi level (Các mốc EXP: 30 - 60 - 90 - 120 - 150)
+        /// - Level 5 - 10: 60 EXP mỗi level (Các mốc EXP: 210 - 270 - 330 - 390 - 450)
+        /// - Level 10 - 20: 100 EXP mỗi level (Các mốc EXP: 550 - 650 - ... - 1450)
+        /// - Level 20 - 30: 180 EXP mỗi level (Các mốc EXP: 1630 - 1810 - ... - 3250)
         /// </summary>
         public static int GetCumulativeExpThreshold(int milestoneIndex)
         {
             if (milestoneIndex <= 0) return 0;
             if (milestoneIndex <= 5)
             {
-                return milestoneIndex * 5; // 5, 10, 15, 20, 25
+                return milestoneIndex * 30; // 30, 60, 90, 120, 150
             }
             if (milestoneIndex <= 10)
             {
-                return 25 + (milestoneIndex - 5) * 10; // 35, 45, 55, 65, 75
+                return 150 + (milestoneIndex - 5) * 60; // 210, 270, 330, 390, 450
             }
             if (milestoneIndex <= 20)
             {
-                return 75 + (milestoneIndex - 10) * 20; // 95 .. 275
+                return 450 + (milestoneIndex - 10) * 100; // 550 .. 1450
             }
-            return 275 + (milestoneIndex - 20) * 40; // 315 .. 675+
+            return 1450 + (milestoneIndex - 20) * 180; // 1630 .. 3250+
         }
 
         public static int GetIncrementalExpForLevel(int currentLevel)
