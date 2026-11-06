@@ -281,10 +281,14 @@ namespace GrindAndGlory
             _spawnTimer -= dt;
             if (_spawnTimer <= 0f)
             {
-                int maxRegular = 26 + SelectedStageNumber * 5;
+                float ramp = Mathf.SmoothStep(0f, 1f, StageElapsedTime / 180f);
+                bool recovering = PlayerController.Instance != null && PlayerController.Instance.CurrentHP < PlayerController.Instance.MaxHP * 0.3f;
+                int maxRegular = Mathf.RoundToInt(Mathf.Lerp(12f, 26f + SelectedStageNumber * 5, ramp));
+                if (recovering || (ActiveBoss != null && !ActiveBoss.IsDead)) maxRegular = Mathf.Max(8, maxRegular / 2);
                 if (EnemyController.ActiveEnemies.Count < maxRegular)
                 {
-                    int batch = CurrentKills >= CurrentStage.MiniBossKillsRequired ? 3 : 2;
+                    int batch = StageElapsedTime < 25f || recovering ? 1 : (CurrentKills >= CurrentStage.MiniBossKillsRequired ? 3 : 2);
+                    batch = Mathf.Min(batch, maxRegular - EnemyController.ActiveEnemies.Count);
                     for (int i = 0; i < batch; i++)
                     {
                         SpawnRegularMonsterAroundPlayer();
@@ -341,7 +345,7 @@ namespace GrindAndGlory
                 spawnPos = MapEnvironmentBuilder.Instance.ClampAndResolveMovement(spawnPos, 0.45f);
             }
 
-            float scale = 1.0f + Mathf.Floor(StageElapsedTime / 60f) * 0.08f;
+            float scale = 1.0f + Mathf.Min(StageElapsedTime / 60f, 8f) * 0.06f;
             EnemyController.SpawnMonster(monsterId, spawnPos, scale);
         }
 

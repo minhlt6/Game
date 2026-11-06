@@ -145,6 +145,13 @@ namespace GrindAndGlory
             proj.Lifetime = 2.8f;
         }
 
+        public static bool SegmentHitsCircle(Vector2 start, Vector2 end, Vector2 center, float radius)
+        {
+            Vector2 segment = end - start;
+            float t = segment.sqrMagnitude > 0.000001f
+                ? Mathf.Clamp01(Vector2.Dot(center - start, segment) / segment.sqrMagnitude) : 0f;
+            return (center - (start + segment * t)).sqrMagnitude <= radius * radius;
+        }
         private void Update()
         {
             if (GrindAndGloryManager.Instance != null && !GrindAndGloryManager.Instance.IsGameplayActive) return;
@@ -162,6 +169,7 @@ namespace GrindAndGlory
                 Velocity.y += GravityY * dt;
             }
 
+            Vector2 previousPosition = transform.position;
             transform.position += (Vector3)(Velocity * dt);
 
             if (Mathf.Abs(SpinSpeed) > 0.01f)
@@ -180,13 +188,9 @@ namespace GrindAndGlory
                 PlayerController player = PlayerController.Instance;
                 if (player != null && !player.IsDead)
                 {
-                    if (Vector2.Distance(pos, player.transform.position) <= HitRadius)
+                    if (SegmentHitsCircle(previousPosition, pos, (Vector2)player.transform.position + Vector2.up * 0.35f, HitRadius + 0.3f))
                     {
-                        player.TakeDamageFromMonster(Damage, "Đạn Quái Vật");
-                        if (AppliesBurnEffect || AppliesBleedEffect)
-                        {
-                            player.ApplyMonsterStatusEffect(AppliesBurnEffect, AppliesBleedEffect);
-                        }
+                        player.TakeDamageFromMonster(Damage, "Đạn Quái Vật", AppliesBurnEffect, AppliesBleedEffect);
                         Destroy(gameObject);
                     }
                 }
@@ -419,23 +423,29 @@ namespace GrindAndGlory
             fx._endScale = Vector3.one * radius;
             go.transform.localScale = fx._startScale;
 
-            PlayerController player = PlayerController.Instance;
-            if (player != null && !player.IsDead)
-            {
-                if (Vector2.Distance(center, player.transform.position) <= radius + 0.2f)
-                {
-                    player.TakeDamageFromMonster(monsterStrength, "Chấn Động Boss");
-                    if (appliesBurn || appliesBleed)
-                    {
-                        player.ApplyMonsterStatusEffect(appliesBurn, appliesBleed);
-                    }
-                }
-            }
+            fx._bossRadius = radius;
+            fx._bossDamage = monsterStrength;
+            fx._bossBurn = appliesBurn;
+            fx._bossBleed = appliesBleed;
         }
 
+        private float _bossRadius;
+        private float _bossDamage;
+        private bool _bossBurn, _bossBleed, _bossHit;
         private void Update()
         {
+            if (GrindAndGloryManager.Instance != null && !GrindAndGloryManager.Instance.IsGameplayActive) return;
             _timer += Time.deltaTime;
+            if (_bossRadius > 0f && !_bossHit)
+            {
+                var player = PlayerController.Instance;
+                float waveRadius = _bossRadius * Mathf.Lerp(0.4f, 1f, Mathf.Clamp01(_timer / _duration));
+                if (player != null && !player.IsDead && Vector2.Distance(transform.position, player.transform.position) <= waveRadius + 0.3f)
+                {
+                    _bossHit = true;
+                    player.TakeDamageFromMonster(_bossDamage, "Chấn Động Boss", _bossBurn, _bossBleed);
+                }
+            }
             float t = Mathf.Clamp01(_timer / _duration);
             transform.localScale = Vector3.Lerp(_startScale, _endScale, t);
             if (_sr != null)

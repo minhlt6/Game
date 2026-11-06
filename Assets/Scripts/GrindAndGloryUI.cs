@@ -133,50 +133,33 @@ namespace GrindAndGlory
         // ==================== 1. MAIN MENU PANEL ====================
         private void BuildMainMenuPanel()
         {
-            _mainMenuPanel = CreateFullScreenPanel("MainMenuPanel", new Color(0.06f, 0.07f, 0.12f, 0.94f));
-
-            // Decorative dark frame card
-            GameObject centerCard = CreatePanel(_mainMenuPanel.transform, "CenterCard", new Vector2(0.5f, 0.5f), new Vector2(1140f, 880f), new Color(0.11f, 0.13f, 0.20f, 0.97f));
-            AddOutline(centerCard, new Color(0.95f, 0.75f, 0.25f, 0.9f), 3f);
-
-            CreateText(centerCard.transform, "UniversityTag", "TRƯỜNG ĐẠI HỌC THỦY LỢI - KHOA CNTT | ĐỒ ÁN THIẾT KẾ & PHÁT TRIỂN TRÒ CHƠI (NHÓM 12 - PIXEL GAMING)",
-                new Vector2(0f, 385f), new Vector2(1060f, 36f), 19, new Color(0.75f, 0.85f, 1f), FontStyle.Bold);
-
-            CreateText(centerCard.transform, "GameTitle", "GRIND AND GLORY",
-                new Vector2(0f, 315f), new Vector2(1000f, 84f), 66, new Color(1f, 0.84f, 0.25f), FontStyle.Bold);
-
-            CreateText(centerCard.transform, "GameSubtitle", "2D Top-Down Action RPG Survival • Giải Cứu Vùng Đất Astral",
-                new Vector2(0f, 252f), new Vector2(960f, 36f), 23, new Color(0.9f, 0.92f, 0.96f), FontStyle.Italic);
-
-            // Heroes Banner from Docx (Hình 1.1 / 3.1)
-            GameObject bannerImgObj = CreateImage(centerCard.transform, "HeroesBanner", "Sprites/banner_heroes", new Vector2(0f, 115f), new Vector2(620f, 196f));
-            AddOutline(bannerImgObj, new Color(0.3f, 0.35f, 0.5f, 0.8f), 2f);
-
-            CreateText(centerCard.transform, "HeroNamesCaption", "Mercy (Chiến binh)   •   Inirius (Pháp sư)   •   Eni (Phù thủy)",
-                new Vector2(0f, -2f), new Vector2(820f, 32f), 20, new Color(0.85f, 0.9f, 1f), FontStyle.Bold);
-
-            // Menu Buttons
-            CreateMenuButton(centerCard.transform, "BtnNewGame", "BẮT ĐẦU HÀNH TRÌNH (CHỌN NHÂN VẬT & MÀN CHƠI)", new Vector2(0f, -78f), new Vector2(640f, 64f),
-                new Color(0.88f, 0.48f, 0.12f), () => _manager.OpenPreGameSetup());
-
-            CreateMenuButton(centerCard.transform, "BtnContinue", "TIẾP TỤC TRẬN ĐẤU GẦN NHẤT (CONTINUE)", new Vector2(0f, -155f), new Vector2(640f, 58f),
-                new Color(0.18f, 0.55f, 0.32f), () => _manager.ContinueSavedGame());
-
-            CreateMenuButton(centerCard.transform, "BtnMerchant", "THƯƠNG GIA XỨ ASTRAL (NÂNG CẤP TRANG BỊ BẰNG VÀNG)", new Vector2(0f, -228f), new Vector2(640f, 58f),
-                new Color(0.24f, 0.42f, 0.72f), () => _manager.OpenMerchantShop());
-
-            CreateMenuButton(centerCard.transform, "BtnExit", "THOÁT TRÒ CHƠI (EXIT)", new Vector2(0f, -300f), new Vector2(640f, 54f),
-                new Color(0.55f, 0.20f, 0.24f), () =>
-                {
+            _mainMenuPanel = CreateFullScreenPanel("MainMenuPanel", new Color(0.025f, 0.04f, 0.075f, 0.98f));
+            CreateText(_mainMenuPanel.transform, "Brand", "PIXEL GAMING   /   ASTRAL", new Vector2(-540f, 420f), new Vector2(600f, 40f), 22, new Color(0.45f, 0.8f, 0.85f), FontStyle.Bold, TextAnchor.MiddleLeft);
+            CreateText(_mainMenuPanel.transform, "GameTitle", "GRIND\nAND GLORY", new Vector2(-480f, 180f), new Vector2(720f, 250f), 88, Color.white, FontStyle.Bold, TextAnchor.MiddleLeft);
+            CreateText(_mainMenuPanel.transform, "Subtitle", "Bảo vệ Astral. Viết nên huyền thoại.", new Vector2(-480f, 10f), new Vector2(720f, 55f), 28, new Color(0.65f, 0.73f, 0.82f), FontStyle.Normal, TextAnchor.MiddleLeft);
+            CreateMenuButton(_mainMenuPanel.transform, "BtnNewGame", "Bắt đầu hành trình  →", new Vector2(-560f, -115f), new Vector2(560f, 78f), new Color(0.12f, 0.58f, 0.65f), () => _manager.OpenPreGameSetup());
+            CreateMenuButton(_mainMenuPanel.transform, "BtnContinue", "Tiếp tục", new Vector2(-560f, -215f), new Vector2(560f, 70f), new Color(0.10f, 0.15f, 0.23f), () => _manager.ContinueSavedGame());
+            CreateMenuButton(_mainMenuPanel.transform, "BtnMerchant", "Nâng cấp", new Vector2(-710f, -310f), new Vector2(260f, 65f), new Color(0.10f, 0.15f, 0.23f), () => _manager.OpenMerchantShop());
+            CreateMenuButton(_mainMenuPanel.transform, "BtnExit", "Thoát", new Vector2(-410f, -310f), new Vector2(260f, 65f), new Color(0.10f, 0.15f, 0.23f), () => {
 #if UNITY_EDITOR
-                    UnityEditor.EditorApplication.isPlaying = false;
+                UnityEditor.EditorApplication.isPlaying = false;
 #else
-                    Application.Quit();
+                Application.Quit();
 #endif
-                });
-
-            CreateText(centerCard.transform, "ControlFooter", "Điều khiển: [W/A/S/D hoặc Mũi Tên] Di chuyển & Đánh  |  [Space/Shift] Lướt né  |  [T] Tự động ngắm  |  [1/2/3] Chọn thẻ  |  [F1] +5000 Gold  |  [R/Esc] Menu",
-                new Vector2(0f, -385f), new Vector2(1080f, 44f), 16, new Color(0.7f, 0.75f, 0.85f), FontStyle.Normal);
+            });
+            var showcase = CreatePanel(_mainMenuPanel.transform, "HeroShowcase", new Vector2(0.5f, 0.5f), new Vector2(650f, 700f), new Color(0.055f, 0.09f, 0.15f));
+            showcase.GetComponent<RectTransform>().anchoredPosition = new Vector2(470f, 20f);
+            CreateText(showcase.transform, "Label", "NHỮNG NGƯỜI BẢO VỆ ASTRAL", new Vector2(0f, 280f), new Vector2(590f, 50f), 24, new Color(0.45f, 0.8f, 0.85f), FontStyle.Bold);
+            for (int i = 0; i < 3; i++)
+            {
+                var h = GameDatabase.Heroes[i];
+                float x = (i - 1) * 200f;
+                var portrait = CreateImage(showcase.transform, "Hero", h.PortraitSprite, new Vector2(x, 35f), new Vector2(175f, 260f));
+                // Use the dedicated portrait asset; world animation frames have a different framing.
+                CreateText(showcase.transform, "Name", h.DisplayName.Split('(')[0].Trim(), new Vector2(x, -150f), new Vector2(190f, 45f), 27, Color.white, FontStyle.Bold);
+            }
+            CreateText(showcase.transform, "Caption", "3 anh hùng • 3 vùng đất\nMột hành trình sinh tồn", new Vector2(0f, -260f), new Vector2(580f, 90f), 25, new Color(0.65f, 0.73f, 0.82f));
+            CreateText(_mainMenuPanel.transform, "Footer", "WASD  Di chuyển      SPACE  Lướt né      ESC  Tạm dừng", new Vector2(0f, -465f), new Vector2(1700f, 45f), 23, new Color(0.55f, 0.64f, 0.73f));
         }
 
         // ==================== 2. PRE-GAME SETUP PANEL ====================
@@ -184,11 +167,11 @@ namespace GrindAndGlory
         {
             _setupPanel = CreateFullScreenPanel("PreGameSetupPanel", new Color(0.06f, 0.08f, 0.13f, 0.96f));
 
-            CreateText(_setupPanel.transform, "HeaderTitle", "THIẾT LẬP TRƯỚC TRẬN ĐẤU (CHỌN NHÂN VẬT & MÀN CHƠI)",
+            CreateText(_setupPanel.transform, "HeaderTitle", "Chuẩn bị hành trình",
                 new Vector2(0f, 475f), new Vector2(1400f, 54f), 38, new Color(1f, 0.85f, 0.25f), FontStyle.Bold);
 
             // Section 1: 3 Heroes
-            CreateText(_setupPanel.transform, "HeroSecLabel", "1. CHỌN 1 TRONG 3 NHÀ MẠO HIỂM GIA (Chỉ 1 nhân vật xuất hiện chiến đấu trong màn chơi):",
+            CreateText(_setupPanel.transform, "HeroSecLabel", "Chọn nhân vật",
                 new Vector2(0f, 415f), new Vector2(1600f, 36f), 22, new Color(0.8f, 0.92f, 1f), FontStyle.Bold);
 
             for (int i = 0; i < 3; i++)
@@ -204,8 +187,8 @@ namespace GrindAndGlory
                 GameObject iconBg = CreatePanel(card.transform, "PortraitBG", new Vector2(0.5f, 0.5f), new Vector2(122f, 132f), new Color(0.08f, 0.1f, 0.15f, 1f));
                 iconBg.GetComponent<RectTransform>().anchoredPosition = new Vector2(-180f, 75f);
                 GameObject portraitObj = CreateImage(iconBg.transform, "Portrait", h.PortraitSprite, Vector2.zero, new Vector2(114f, 126f));
-                SpriteAnimator anim = portraitObj.AddComponent<SpriteAnimator>();
-                anim.Initialize(h.AssetFolder, 44f, 8f, true);
+                // Dedicated portrait keeps consistent framing in the selection cards.
+
 
                 // Weapon icon
                 WeaponDefinition mainW = GameDatabase.Weapons[h.StartingWeaponId];
@@ -213,16 +196,14 @@ namespace GrindAndGlory
                 CreateText(card.transform, "WeaponLbl", mainW.DisplayName, new Vector2(-180f, -100f), new Vector2(140f, 30f), 15, new Color(1f, 0.85f, 0.35f), FontStyle.Bold);
 
                 // Stats & Info
-                CreateText(card.transform, "HeroName", $"{h.DisplayName}\n<size=36><color=#7FD8FF>{h.RoleTitle}</color></size>",
+                CreateText(card.transform, "HeroName", $"{h.DisplayName.Split('(')[0].Trim()}\n<size=36><color=#7FD8FF>{h.RoleTitle}</color></size>",
                     new Vector2(55f, 112f), new Vector2(320f, 56f), 24, Color.white, FontStyle.Bold, TextAnchor.MiddleLeft);
 
-                string statsStr = $"• HP: <b>{h.BaseHP}</b> (+{h.HPPerLevel}/lvl)\n" +
-                                  $"• {h.AttackStatLabel}: <b>{h.BaseAttack}</b> (+{h.AttackPerLevel}/lvl)\n" +
-                                  $"• Endurance: <b>{h.BaseEndurance}</b> (+{h.EndurancePerLevel}/lvl) | Speed: <b>{h.BaseSpeed}</b>";
+                string statsStr = $"Máu  {h.BaseHP}\nSức mạnh  {h.BaseAttack}\nTốc độ  {h.BaseSpeed}";
                 CreateText(card.transform, "HeroStats", statsStr,
                     new Vector2(55f, 28f), new Vector2(325f, 85f), 17, new Color(0.9f, 0.95f, 0.9f), FontStyle.Normal, TextAnchor.MiddleLeft);
 
-                CreateText(card.transform, "HeroProg", h.ProgressionSummary,
+                CreateText(card.transform, "HeroProg", "Tự động tấn công • Lướt để né đòn",
                     new Vector2(45f, -72f), new Vector2(340f, 92f), 14, new Color(0.78f, 0.84f, 0.95f), FontStyle.Normal, TextAnchor.UpperLeft);
 
                 HeroId capturedHero = h.Id;
@@ -237,7 +218,7 @@ namespace GrindAndGlory
             }
 
             // Section 2: 3 Stages
-            CreateText(_setupPanel.transform, "StageSecLabel", "2. CHỌN BẢN ĐỒ MÀN CHƠI (Tích lũy Kill Count để gọi Mini Boss và Final Boss):",
+            CreateText(_setupPanel.transform, "StageSecLabel", "Chọn vùng đất",
                 new Vector2(0f, -2f), new Vector2(1600f, 36f), 22, new Color(0.8f, 0.92f, 1f), FontStyle.Bold);
 
             for (int i = 0; i < 3; i++)
@@ -258,9 +239,7 @@ namespace GrindAndGlory
                 CreateText(sCard.transform, "StageTitle", $"{s.Title} ({s.ChapterCode})",
                     new Vector2(55f, 102f), new Vector2(325f, 38f), 22, new Color(1f, 0.86f, 0.3f), FontStyle.Bold, TextAnchor.MiddleLeft);
 
-                string stageInfo = $"{s.LoreDescription}\n\n" +
-                                   $"<color=#7FFFD4>• Mini Boss ({s.MiniBossKillsRequired} Kills):</color> {miniDef.DisplayName}\n" +
-                                   $"<color=#FF8080>• Final Boss ({s.FinalBossKillsRequired} Kills):</color> {finalDef.DisplayName} (HP: {finalDef.MaxHP})";
+                string stageInfo = $"Hạ {s.FinalBossKillsRequired} quái và đánh bại trùm.\n\nTrùm phụ: {s.MiniBossKillsRequired} quái";
                 CreateText(sCard.transform, "StageInfo", stageInfo,
                     new Vector2(55f, -20f), new Vector2(325f, 195f), 16, new Color(0.9f, 0.92f, 0.96f), FontStyle.Normal, TextAnchor.UpperLeft);
 
@@ -278,13 +257,13 @@ namespace GrindAndGlory
             _setupSummaryText = CreateText(_setupPanel.transform, "SetupSummary", "",
                 new Vector2(0f, -365f), new Vector2(1400f, 36f), 21, new Color(0.6f, 1f, 0.7f), FontStyle.Bold);
 
-            CreateMenuButton(_setupPanel.transform, "BtnBackMenu", "QUAY LẠI MENU CHÍNH", new Vector2(-480f, -445f), new Vector2(340f, 62f),
+            CreateMenuButton(_setupPanel.transform, "BtnBackMenu", "Quay lại", new Vector2(-480f, -445f), new Vector2(340f, 62f),
                 new Color(0.32f, 0.36f, 0.48f), () => _manager.OpenMainMenu());
 
             CreateMenuButton(_setupPanel.transform, "BtnQuickDemoUnlock", "[F1] MỞ KHÓA 3 MÀN & +5000 GOLD", new Vector2(-60f, -445f), new Vector2(420f, 62f),
                 new Color(0.22f, 0.52f, 0.68f), () => _manager.UnlockAllAndGrantDemoResources());
 
-            CreateMenuButton(_setupPanel.transform, "BtnStartBattle", "XUẤT TRẬN CHIẾN ĐẤU (START GAME)", new Vector2(410f, -445f), new Vector2(440f, 68f),
+            CreateMenuButton(_setupPanel.transform, "BtnStartBattle", "Vào trận", new Vector2(410f, -445f), new Vector2(440f, 68f),
                 new Color(0.92f, 0.45f, 0.12f), () => _manager.StartStageBattle(_manager.SelectedHero, _manager.SelectedStageNumber));
         }
 
@@ -314,7 +293,7 @@ namespace GrindAndGlory
             WeaponDefinition w = GameDatabase.Weapons[h.StartingWeaponId];
             if (_setupSummaryText != null)
             {
-                _setupSummaryText.text = $"Đang chọn: Nhân vật [{h.DisplayName}] - Vũ khí chính [{w.DisplayName}]  |  Bản đồ [{s.Title}] (Mốc thắng: {s.FinalBossKillsRequired} Kills + Hạ Final Boss)";
+                _setupSummaryText.text = $"Đang chọn: Nhân vật [{h.DisplayName.Split('(')[0].Trim()}] - Vũ khí chính [{w.DisplayName}]  |  Bản đồ [{s.Title}] (Mốc thắng: {s.FinalBossKillsRequired} Kills + Hạ Final Boss)";
             }
         }
 
@@ -378,7 +357,7 @@ namespace GrindAndGlory
             CreateMenuButton(box.transform, "BtnShopGrantGold", "[F1] Nhận +5,000 Gold Thử Nghiệm", new Vector2(220f, -310f), new Vector2(380f, 58f),
                 new Color(0.52f, 0.36f, 0.16f), () => _manager.UnlockAllAndGrantDemoResources());
 
-            CreateMenuButton(box.transform, "BtnCloseShop", "QUAY LẠI MENU CHÍNH", new Vector2(-220f, -310f), new Vector2(380f, 58f),
+            CreateMenuButton(box.transform, "BtnCloseShop", "Quay lại", new Vector2(-220f, -310f), new Vector2(380f, 58f),
                 new Color(0.35f, 0.40f, 0.52f), () => _manager.OpenMainMenu());
         }
 
@@ -602,14 +581,14 @@ namespace GrindAndGlory
             GameObject box = CreatePanel(_pausePanel.transform, "PauseBox", new Vector2(0.5f, 0.5f), new Vector2(920f, 760f), new Color(0.12f, 0.15f, 0.23f, 0.98f));
             AddOutline(box, new Color(0.6f, 0.75f, 1f, 0.9f), 3f);
 
-            CreateText(box.transform, "PauseTitle", "TẠM DỪNG & CÀI ĐẶT (PAUSE / SETTINGS)",
+            CreateText(box.transform, "PauseTitle", "Tạm dừng",
                 new Vector2(0f, 320f), new Vector2(820f, 48f), 34, new Color(1f, 0.86f, 0.28f), FontStyle.Bold);
 
             // Audio volume controls
             CreateText(box.transform, "AudioLbl", "ĐIỀU CHỈNH ÂM THANH (NHẠC NỀN BGM & HIỆU ỨNG SFX):",
                 new Vector2(0f, 255f), new Vector2(780f, 32f), 20, new Color(0.75f, 0.92f, 1f), FontStyle.Bold);
 
-            CreateMenuButton(box.transform, "BgmToggle", "Nhạc nền (BGM): Bật / Chuyển mức âm lượng", new Vector2(-210f, 200f), new Vector2(390f, 48f),
+            CreateMenuButton(box.transform, "BgmToggle", "Nhạc nền", new Vector2(-210f, 200f), new Vector2(390f, 48f),
                 new Color(0.22f, 0.42f, 0.65f), () =>
                 {
                     if (AudioManager.Instance != null)
@@ -620,7 +599,7 @@ namespace GrindAndGlory
                     }
                 });
 
-            CreateMenuButton(box.transform, "SfxToggle", "Hiệu ứng (SFX): Bật / Chuyển mức âm lượng", new Vector2(210f, 200f), new Vector2(390f, 48f),
+            CreateMenuButton(box.transform, "SfxToggle", "Âm thanh", new Vector2(210f, 200f), new Vector2(390f, 48f),
                 new Color(0.22f, 0.42f, 0.65f), () =>
                 {
                     if (AudioManager.Instance != null)
@@ -684,13 +663,13 @@ namespace GrindAndGlory
             _pauseGodModeBtnText = godBtn.GetComponentInChildren<Text>();
 
             // Standard Pause Actions
-            CreateMenuButton(box.transform, "BtnResume", "TIẾP TỤC CHIẾN ĐẤU (RESUME - PHÍM R / ESC)", new Vector2(0f, -145f), new Vector2(560f, 60f),
+            CreateMenuButton(box.transform, "BtnResume", "Tiếp tục", new Vector2(0f, -145f), new Vector2(560f, 60f),
                 new Color(0.20f, 0.65f, 0.32f), () => _manager.TogglePauseMenu(false));
 
-            CreateMenuButton(box.transform, "BtnRetryStage", "CHƠI LẠI MÀN NÀY (RETRY)", new Vector2(0f, -218f), new Vector2(560f, 54f),
+            CreateMenuButton(box.transform, "BtnRetryStage", "Chơi lại", new Vector2(0f, -218f), new Vector2(560f, 54f),
                 new Color(0.82f, 0.48f, 0.15f), () => _manager.StartStageBattle(_manager.SelectedHero, _manager.SelectedStageNumber));
 
-            CreateMenuButton(box.transform, "BtnPauseToMenu", "THOÁT VỀ MENU CHÍNH (MAIN MENU)", new Vector2(0f, -288f), new Vector2(560f, 54f),
+            CreateMenuButton(box.transform, "BtnPauseToMenu", "THOÁT Về trang chủ", new Vector2(0f, -288f), new Vector2(560f, 54f),
                 new Color(0.55f, 0.22f, 0.26f), () => _manager.OpenMainMenu());
         }
 
@@ -709,7 +688,7 @@ namespace GrindAndGlory
             _victoryDetailText = CreateText(overlay.transform, "WinDetail", "",
                 new Vector2(0f, 35f), new Vector2(920f, 270f), 22, Color.white, FontStyle.Normal);
 
-            Button nextBtn = CreateMenuButton(overlay.transform, "BtnNextStage", "TIẾN VÀO MÀN TIẾP THEO (NEXT STAGE)", new Vector2(210f, -195f), new Vector2(420f, 64f),
+            Button nextBtn = CreateMenuButton(overlay.transform, "BtnNextStage", "Màn tiếp theo", new Vector2(210f, -195f), new Vector2(420f, 64f),
                 new Color(0.18f, 0.68f, 0.34f), () =>
                 {
                     int nextStage = Mathf.Clamp(_manager.SelectedStageNumber + 1, 1, 3);
@@ -717,7 +696,7 @@ namespace GrindAndGlory
                 });
             _victoryNextStageBtnObj = nextBtn.gameObject;
 
-            CreateMenuButton(overlay.transform, "BtnWinMainMenu", "VỀ MENU CHÍNH (MAIN MENU)", new Vector2(-210f, -195f), new Vector2(360f, 64f),
+            CreateMenuButton(overlay.transform, "BtnWinMainMenu", "Về trang chủ", new Vector2(-210f, -195f), new Vector2(360f, 64f),
                 new Color(0.28f, 0.42f, 0.65f), () => _manager.OpenMainMenu());
         }
 
@@ -735,10 +714,10 @@ namespace GrindAndGlory
             _defeatDetailText = CreateText(overlay.transform, "DefeatDetail", "",
                 new Vector2(0f, 25f), new Vector2(860f, 210f), 22, new Color(0.95f, 0.9f, 0.9f), FontStyle.Normal);
 
-            CreateMenuButton(overlay.transform, "BtnRetry", "CHƠI LẠI MÀN NÀY (RETRY)", new Vector2(195f, -175f), new Vector2(360f, 64f),
+            CreateMenuButton(overlay.transform, "BtnRetry", "Chơi lại", new Vector2(195f, -175f), new Vector2(360f, 64f),
                 new Color(0.88f, 0.45f, 0.15f), () => _manager.StartStageBattle(_manager.SelectedHero, _manager.SelectedStageNumber));
 
-            CreateMenuButton(overlay.transform, "BtnDefeatMenu", "VỀ MENU CHÍNH (MAIN MENU)", new Vector2(-195f, -175f), new Vector2(360f, 64f),
+            CreateMenuButton(overlay.transform, "BtnDefeatMenu", "Về trang chủ", new Vector2(-195f, -175f), new Vector2(360f, 64f),
                 new Color(0.36f, 0.38f, 0.48f), () => _manager.OpenMainMenu());
         }
 
@@ -1060,17 +1039,18 @@ namespace GrindAndGlory
             Text txt = go.GetComponent<Text>();
             txt.font = _font;
             txt.text = content;
-            txt.fontSize = Mathf.Max(14, fontSize) * 2;
+            txt.fontSize = Mathf.Max(20, fontSize) * 2;
             txt.color = color;
             txt.fontStyle = style;
             txt.alignment = align;
             txt.horizontalOverflow = HorizontalWrapMode.Wrap;
             txt.verticalOverflow = VerticalWrapMode.Overflow;
             txt.supportRichText = true;
+            txt.raycastTarget = false;
 
             Shadow sh = go.AddComponent<Shadow>();
-            sh.effectColor = new Color(0f, 0f, 0f, 0.90f);
-            sh.effectDistance = new Vector2(2.2f, -2.2f);
+            sh.effectColor = new Color(0f, 0f, 0f, 0.18f);
+            sh.effectDistance = new Vector2(0.5f, -0.5f);
             return txt;
         }
 
@@ -1078,7 +1058,7 @@ namespace GrindAndGlory
         {
             GameObject go = CreatePanel(parent, name, new Vector2(0.5f, 0.5f), size, bgColor);
             go.GetComponent<RectTransform>().anchoredPosition = pos;
-            AddOutline(go, new Color(1f, 0.9f, 0.6f, 0.8f), 2f);
+            AddOutline(go, new Color(0.55f, 0.7f, 0.85f, 0.25f), 1f);
 
             Button btn = go.AddComponent<Button>();
             btn.targetGraphic = go.GetComponent<Image>();
@@ -1089,7 +1069,7 @@ namespace GrindAndGlory
             btn.colors = cb;
             btn.onClick.AddListener(onClick);
 
-            CreateText(go.transform, "Label", label, Vector2.zero, size - new Vector2(16f, 6f), 20, Color.white, FontStyle.Bold);
+            CreateText(go.transform, "Label", label, Vector2.zero, size - new Vector2(32f, 10f), 26, Color.white, FontStyle.Bold);
             return btn;
         }
 

@@ -32,7 +32,7 @@ namespace GrindAndGlory
                 tex.anisoLevel = 4;
                 tex.wrapMode = TextureWrapMode.Clamp;
                 Vector2 pivot = customPivot ?? new Vector2(0.5f, 0.5f);
-                Sprite sp = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), pivot, pixelsPerUnit);
+                Sprite sp = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), pivot, pixelsPerUnit, 0, SpriteMeshType.FullRect);
                 sp.name = resourcePath;
                 _spriteCache[cacheKey] = sp;
                 return sp;
@@ -117,7 +117,7 @@ namespace GrindAndGlory
                     tex.filterMode = FilterMode.Trilinear;
                     tex.anisoLevel = 4;
                     tex.wrapMode = TextureWrapMode.Clamp;
-                    Sprite sp = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), pivot, hdPixelsPerUnit);
+                    Sprite sp = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), pivot, hdPixelsPerUnit, 0, SpriteMeshType.FullRect);
                     sp.name = $"{entityFolder}_{stateName}_{i:D2}";
                     list.Add(sp);
                     continue;
@@ -214,7 +214,7 @@ namespace GrindAndGlory
 
         private void Update()
         {
-            if (_frames == null || _frames.Count <= 1) return;
+            if (_frames == null || _frames.Count == 0) return;
 
             float dt = UseUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
             _timer += dt * FramesPerSecond;

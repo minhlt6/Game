@@ -69,8 +69,10 @@ namespace GrindAndGlory
         private const float DashCooldownMax = 1.15f;
         private Vector2 _dashDirection;
         private float _eggSpeedBuffTimer;
+        private float _bossSlowTimer;
+        public float BossSlowRemaining => Mathf.Max(0f, _bossSlowTimer);
         private float _regenTimer;
-        private float _hurtFlashTimer;
+        private float _hurtFlashTimer; private float _contactGraceUntil;
 
         // Monster Burn / Bleed status timers on Player
         private float _playerBurnTimer;
@@ -95,6 +97,7 @@ namespace GrindAndGlory
             TotalExp = 0;
             IsDead = false;
             LastMoveDirection = Vector2.right;
+            _bossSlowTimer = 0f;
             _playerBurnTimer = 0f;
             _playerBleedTimer = 0f;
             _eggSpeedBuffTimer = 0f;
@@ -118,6 +121,7 @@ namespace GrindAndGlory
             // Equip starting main weapon at Level 1
             EquipOrUpgradeWeapon(HeroDef.StartingWeaponId);
 
+            if (GetComponent<BattleReadability>() == null) gameObject.AddComponent<BattleReadability>();
             // Visual setup (PPU = 58f giúp nhân vật gọn gàng, cân đối với góc nhìn toàn cảnh)
             _spriteRenderer = GetComponent<SpriteRenderer>();
             if (_spriteRenderer == null) _spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
@@ -195,6 +199,7 @@ namespace GrindAndGlory
             int thanTocLv = GetPassiveLevel("than_toc");
             float mult = thanTocLv == 1 ? 1.10f : (thanTocLv >= 2 ? 1.20f : 1.0f);
             if (_eggSpeedBuffTimer > 0f) mult *= 1.25f;
+            if (_bossSlowTimer > 0f && _dashActiveTimer <= 0f) mult *= 0.75f;
             if (_dashActiveTimer > 0f) mult *= 2.35f;
             return BaseSpeedStat * mult;
         }
@@ -469,7 +474,7 @@ namespace GrindAndGlory
 
         public void ApplyMonsterStatusEffect(bool burn, bool bleed)
         {
-            if (IsDead || GodMode || _dashActiveTimer > 0f) return;
+            if (IsDead || GodMode || _dashActiveTimer > 0f || Time.time < _contactGraceUntil) return;
 
             if (burn)
             {
@@ -485,8 +490,16 @@ namespace GrindAndGlory
             RefreshPlayerStatusVfx();
         }
 
+                public void ApplyBossSlow(float duration)
+        {
+            if (IsDead || GodMode || _dashActiveTimer > 0f || Time.time < _contactGraceUntil) return;
+            _bossSlowTimer = Mathf.Max(_bossSlowTimer, duration);
+            FloatingTextPopup.Spawn(transform.position + Vector3.up, "CHẬM CHÂN", new Color(0.5f, 0.85f, 1f), 0.13f);
+        }
+
         public void CleanseStatusEffects()
         {
+            _bossSlowTimer = 0f;
             _playerBurnTimer = 0f;
             _playerBleedTimer = 0f;
             RefreshPlayerStatusVfx();
@@ -523,6 +536,7 @@ namespace GrindAndGlory
             if (GrindAndGloryManager.Instance == null || !GrindAndGloryManager.Instance.IsGameplayActive) return;
 
             float dt = Time.deltaTime;
+            _bossSlowTimer = Mathf.Max(0f, _bossSlowTimer - dt);
 
             if (_dashCooldownTimer > 0f) _dashCooldownTimer -= dt;
             if (_dashActiveTimer > 0f) _dashActiveTimer -= dt;
@@ -867,10 +881,12 @@ namespace GrindAndGlory
             }
         }
 
-        public void TakeDamageFromMonster(float monsterStrength, string attackerName = "")
+        public void TakeDamageFromMonster(float monsterStrength, string attackerName = "", bool appliesBurn = false, bool appliesBleed = false)
         {
-            if (IsDead || GodMode || _dashActiveTimer > 0f) return;
+            if (IsDead || GodMode || _dashActiveTimer > 0f || Time.time < _contactGraceUntil) return;
 
+            ApplyMonsterStatusEffect(appliesBurn, appliesBleed);
+            _contactGraceUntil = Time.time + 0.45f;
             float dmgTaken = GameDatabase.CalculateDamageTaken(monsterStrength, GetEffectiveEndurance());
             CurrentHP = Mathf.Max(0f, CurrentHP - dmgTaken);
             UpdateWorldHpBar();

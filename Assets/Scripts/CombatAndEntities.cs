@@ -157,7 +157,7 @@ namespace GrindAndGlory
             if (player == null || player.IsDead) return;
 
             Vector2 pPos = player.transform.position;
-            Vector2 myPos = transform.position;
+Vector2 myPos = transform.position;
             float dist = Vector2.Distance(pPos, myPos);
 
             float magnetRadius = player.GetPickupMagnetRadius();
@@ -217,6 +217,10 @@ namespace GrindAndGlory
         private float _chargeDurationTimer;
         private Vector2 _chargeDir;
         private bool _isEnraged;
+        private float _bossRecovery;
+        private float _bossWindup;
+        private Vector2 _bossTarget;
+        private int _bossCastIndex;
 
         public static EnemyController SpawnMonster(string monsterId, Vector2 position, float difficultyScale = 1.0f)
         {
@@ -245,7 +249,7 @@ namespace GrindAndGlory
             enemy._animator = anim;
             enemy.MaxHP = def.MaxHP * difficultyScale;
             enemy.CurrentHP = enemy.MaxHP;
-            enemy._specialAttackTimer = UnityEngine.Random.Range(1.8f, 3.5f);
+            enemy._specialAttackTimer = def.Category == MonsterCategory.Regular ? UnityEngine.Random.Range(1.8f, 3.5f) : 1.2f;
 
             enemy.CreateWorldHealthBar(def.Category != MonsterCategory.Regular);
             ActiveEnemies.Add(enemy);
@@ -334,6 +338,23 @@ namespace GrindAndGlory
                 }
             }
 
+            if (Definition.Category != MonsterCategory.Regular)
+            {
+                // Cooldown runs during windup and recovery, rather than stacking three waits.
+                _specialAttackTimer -= dt;
+                if (_bossWindup > 0f)
+                {
+                    _bossWindup -= dt;
+                    if (_bossWindup <= 0f) ReleaseBossSkill();
+                    return;
+                }
+                if (_bossRecovery > 0f)
+                {
+                    _bossRecovery -= dt;
+                    if (_animator != null) _animator.Play("idle", true, false);
+                    return;
+                }
+            }
             Vector2 myPos = transform.position;
             Vector2 pPos = player.transform.position;
             Vector2 toPlayer = pPos - myPos;
@@ -343,7 +364,13 @@ namespace GrindAndGlory
             // Movement + Knockback + Charge + Boss Enrage Speed Boost
             float speedMult = Mathf.Clamp(1.0f - _slowRatio, 0.25f, 1.0f);
             float baseSpeedFactor = Definition.Category == MonsterCategory.Regular ? 0.85f : (_isEnraged ? 1.32f : 1.05f);
-            float moveSpeed = Definition.Speed * baseSpeedFactor * speedMult;
+                        float moveSpeed = Definition.Speed * baseSpeedFactor * speedMult;
+            if (Definition.Category != MonsterCategory.Regular)
+            {
+                // Cap against the hero's base speed, so buffs and dashes create real distance.
+                moveSpeed = Mathf.Min(Definition.Speed * (_isEnraged ? 0.82f : 0.72f), player.BaseSpeedStat * 0.78f) * speedMult;
+                if (dist < 2.2f) moveSpeed = 0f;
+            }
 
             if (_chargeDurationTimer > 0f)
             {
@@ -384,15 +411,11 @@ namespace GrindAndGlory
                 _contactCooldown = Definition.Category == MonsterCategory.Regular ? 0.75f : 0.55f;
                 if (_animator != null) _animator.PlayOneShot("attack", "run");
                 float contactStr = Definition.Category == MonsterCategory.Regular ? Definition.Strength : Definition.Strength * (_isEnraged ? 1.55f : 1.30f);
-                player.TakeDamageFromMonster(contactStr, Definition.DisplayName);
-                if (Definition.AppliesBurn || Definition.AppliesBleed)
-                {
-                    player.ApplyMonsterStatusEffect(Definition.AppliesBurn, Definition.AppliesBleed);
-                }
+                player.TakeDamageFromMonster(contactStr, Definition.DisplayName, Definition.AppliesBurn, Definition.AppliesBleed);
             }
 
             // Special / Ranged / Boss Skills
-            _specialAttackTimer -= dt;
+            if (Definition.Category == MonsterCategory.Regular) _specialAttackTimer -= dt;
             if (_specialAttackTimer <= 0f && dist <= 13.5f)
             {
                 ExecuteSpecialPattern(player, dir, dist);
@@ -401,6 +424,18 @@ namespace GrindAndGlory
 
         private void ExecuteSpecialPattern(PlayerController player, Vector2 dirToPlayer, float dist)
         {
+            if (Definition.Category != MonsterCategory.Regular)
+            {
+                _bossTarget = player.transform.position;
+                _bossWindup = _isEnraged ? 0.7f : 0.9f;
+                float stagePace = Definition.Id == "boss_guardian_fire" || Definition.Id == "boss_herald_of_death" ? 0.4f
+                    : Definition.Id == "boss_bone_gargoyle" || Definition.Id == "boss_grim_reaper" ? 0.2f : 0f;
+                float cycle = Definition.Category == MonsterCategory.FinalBoss ? 2.8f : 3.2f;
+                _specialAttackTimer = cycle - stagePace - (_isEnraged ? 0.45f : 0f);
+                if (_animator != null) _animator.PlayOneShot("skill", "idle");
+                BossSkillZone.Spawn(this, _bossTarget, BossSkillRadius(), _bossWindup);
+                return;
+            }
             float baseCd = Definition.Category == MonsterCategory.FinalBoss ? 1.55f :
                            (Definition.Category == MonsterCategory.MiniBoss ? 2.0f : 4.2f);
             if (_isEnraged) baseCd *= 0.68f;
@@ -460,6 +495,29 @@ namespace GrindAndGlory
             }
         }
 
+        private float BossSkillRadius()
+        {
+            return Definition.Id == "boss_golem" ? 2.6f : Definition.Id == "boss_herald_of_death" ? 2.3f : 1.8f;
+        }
+
+        private void ReleaseBossSkill()
+        {
+            _bossRecovery = _isEnraged ? 0.75f : 1.0f;
+            _bossCastIndex++;
+            bool fire = Definition.Id == "boss_guardian_fire" || Definition.Id == "boss_herald_of_death";
+            bool bleed = Definition.Id == "boss_bone_gargoyle" || Definition.Id == "boss_grim_reaper";
+            // Alternate an aimed fan with a radial volley; no simultaneous charge/AoE spam.
+            int count = Definition.Id == "boss_herald_of_death" ? 12 : bleed ? 7 : 5;
+            if (_isEnraged) count += 2;
+            float angle = Mathf.Atan2(_bossTarget.y - transform.position.y, _bossTarget.x - transform.position.x) * Mathf.Rad2Deg;
+            bool radial = _bossCastIndex % 2 == 0 && Definition.Category == MonsterCategory.FinalBoss;
+            for (int i = 0; i < count; i++)
+            {
+                float degrees = radial ? angle + i * 360f / count : angle + (i - (count - 1) * 0.5f) * 16f;
+                Vector2 direction = new Vector2(Mathf.Cos(degrees * Mathf.Deg2Rad), Mathf.Sin(degrees * Mathf.Deg2Rad));
+                CombatProjectile.SpawnEnemyProjectile(transform.position, direction, Definition.Strength * 1.1f, fire, bleed);
+            }
+        }
         public void ApplySlow(float slowPercent, float duration)
         {
             if (IsDead) return;
